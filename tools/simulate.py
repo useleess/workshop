@@ -101,7 +101,9 @@ def staged(key, kind, total=300, failed=0):
     emit(load("status.json"), {"type": "tests_done", "mod": key, "version": version, "ok": ok, "total": total,
                                "passed": passed, "failed": failed, "skipped": 0})
     emit(load("status.json"), {"type": "judged", "mod": key, "version": version, "ok": ok, "score": score})
-    if not ok:
+    if not ok:  # like release.py: the crate's requests need work again
+        for item_id in shipped:
+            set_status(key, item_id, "in-progress")
         return
     time.sleep(25)  # uploads to GitHub / Modrinth
     status = load("status.json")
