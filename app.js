@@ -214,14 +214,14 @@ function buildFloor(f) {
   abs('title', 600, 22, `<h1>USELEESS MOD<br>WORKSHOP</h1>
     <div class="badge" style="background:${f.type === 'dungeon' ? '#F2B544' : '#8FE3B0'}">${badge}</div>`);
   if (f.type === 'dungeon') {
-    abs('torch', 922, 96, '<i></i><b></b>');
+    abs('torch', 838, 96, '<i></i><b></b>');
     abs('torch', 1202, 96, '<i></i><b></b>');
   }
 
   F.board = abs('board', 24, 22, `<h2>Discord requests</h2><div class="hint">hover a block</div>
     <div class="legend"><span><i style="background:#F2B544"></i>idea</span><span><i style="background:#E56B5D"></i>bug</span>
     <a href="${esc(status.discord || '#')}">Want something built? Suggest it in our Discord</a></div>`);
-  F.score = abs('score', 944, 18);
+  F.score = abs('score', 856, 18);
   F.elevator = abs('elevator', 1220, 96, `<div class="num">${f.type === 'dungeon' ? f.name : f.id.slice(1)}</div>
     <div class="inside"></div><div class="ld"></div><div class="rd"></div>`);
 
