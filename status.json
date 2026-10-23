@@ -1,0 +1,216 @@
+{
+ "generated": "2026-10-24T15:58:10Z",
+ "last_event": 94,
+ "discord": "https://discord.gg/fkNcMPTPuy",
+ "mods": [
+  {
+   "key": "litematica-turbo",
+   "name": "Litematica Turbo",
+   "stage": "released",
+   "version": "0.4.3",
+   "items": []
+  },
+  {
+   "key": "schematica-upgraded",
+   "name": "Schematica Upgraded",
+   "stage": "released",
+   "version": "1.0.0",
+   "items": [
+    {
+     "id": 4,
+     "title": "Schematics lose all container inventories with Carpet saveschematic rule",
+     "kind": "bug",
+     "status": "reported",
+     "votes": 1,
+     "lane": null,
+     "since": "2026-10-23"
+    },
+    {
+     "id": 5,
+     "title": "String (tripwire) blocks do not paste",
+     "kind": "bug",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-10-24"
+    }
+   ]
+  },
+  {
+   "key": "redstone-scope",
+   "name": "Redstone Scope",
+   "stage": "dungeon",
+   "version": "0.1.2",
+   "items": [
+    {
+     "id": 1,
+     "title": "PDF spec-sheet style feature guide",
+     "kind": "request",
+     "status": "planned",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-10-22"
+    },
+    {
+     "id": 2,
+     "title": "Scope UI/settings overhaul, Axiom/MiniHUD compat, vanilla tick default",
+     "kind": "request",
+     "status": "planned",
+     "votes": 0,
+     "lane": "with-me",
+     "since": "2026-10-24"
+    },
+    {
+     "id": 4,
+     "title": "Probe UI tweaks: rename Clear, name/coord render toggles",
+     "kind": "request",
+     "status": "planned",
+     "votes": 0,
+     "lane": "with-me",
+     "since": "2026-10-24"
+    },
+    {
+     "id": 7,
+     "title": "Probe names should render through blocks",
+     "kind": "request",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-10-22"
+    },
+    {
+     "id": 8,
+     "title": "Minecart features inspired by Mended Minecarts",
+     "kind": "request",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-10-22"
+    },
+    {
+     "id": 9,
+     "title": "Option to probe all blocks in a selection",
+     "kind": "request",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-10-22"
+    },
+    {
+     "id": 10,
+     "title": "Batch select all blocks of a specific type inside a selection",
+     "kind": "request",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-10-23"
+    },
+    {
+     "id": 11,
+     "title": "Probes should detect redstone torch burnout",
+     "kind": "request",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-10-23"
+    },
+    {
+     "id": 12,
+     "title": "Detach cursor outside window mode even with no tabs pinned",
+     "kind": "request",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-10-23"
+    }
+   ]
+  },
+  {
+   "key": "storage-turbo",
+   "name": "Storage Turbo",
+   "stage": "dungeon",
+   "version": "0.1.0",
+   "items": []
+  },
+  {
+   "key": "carpet-singleplayer",
+   "name": "CarpetSP",
+   "stage": "dungeon",
+   "version": "0.1.4",
+   "items": []
+  }
+ ],
+ "ideas": [
+  {
+   "title": "Masa Mods Keybinds in Controls",
+   "votes": 2
+  },
+  {
+   "title": "Translation Layer for 1.12",
+   "votes": 2
+  },
+  {
+   "title": "Better Easy Place",
+   "votes": 1
+  }
+ ],
+ "pushes": [
+  {
+   "mod": "litematica-turbo",
+   "name": "Litematica Turbo",
+   "version": "0.4.3",
+   "kind": "release",
+   "date": "2026-10-24"
+  },
+  {
+   "mod": "redstone-scope",
+   "name": "Redstone Scope",
+   "version": "0.1.2",
+   "kind": "testers",
+   "date": "2026-10-24"
+  },
+  {
+   "mod": "schematica-upgraded",
+   "name": "Schematica Upgraded",
+   "version": "1.0.0",
+   "kind": "release",
+   "date": "2026-10-23"
+  },
+  {
+   "mod": "redstone-scope",
+   "name": "Redstone Scope",
+   "version": "0.1.1",
+   "kind": "testers",
+   "date": "2026-10-23"
+  },
+  {
+   "mod": "carpet-singleplayer",
+   "name": "CarpetSP",
+   "version": "0.1.4",
+   "kind": "testers",
+   "date": "2026-10-23"
+  },
+  {
+   "mod": "carpet-singleplayer",
+   "name": "CarpetSP",
+   "version": "0.1.3",
+   "kind": "testers",
+   "date": "2026-10-23"
+  },
+  {
+   "mod": "carpet-singleplayer",
+   "name": "CarpetSP",
+   "version": "0.1.2",
+   "kind": "testers",
+   "date": "2026-10-23"
+  },
+  {
+   "mod": "carpet-singleplayer",
+   "name": "CarpetSP",
+   "version": "0.1.1",
+   "kind": "testers",
+   "date": "2026-10-23"
+  }
+ ],
+ "in_flight": []
+}
