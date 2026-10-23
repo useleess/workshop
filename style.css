@@ -26,7 +26,11 @@ button { font: inherit; color: inherit; }
   font: 600 14px Fredoka, sans-serif; cursor: pointer; }
 .floor-btn.on { background: #DCE4EE; color: var(--ink); }
 .note { color: #DCE4EE; font-size: 15px; font-weight: 600; flex: 1 1 260px; }
-.tab.dash { margin-left: auto; }
+.tab.dash { margin-left: 0; }
+.live { margin-left: auto; font-size: 13px; font-weight: 800; color: #DCE4EE; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.live::before { content: ""; width: 10px; height: 10px; border-radius: 5px; background: var(--ok); }
+.live.bad { color: #FFB3A8; }
+.live.bad::before { background: var(--bug); }
 .tab:focus-visible, .floor-btn:focus-visible, .box:focus-visible, .crate:focus-visible { outline: 3px solid #7FB7E8; outline-offset: 2px; }
 
 /* ---------- stage (the office, scaled to fit) ---------- */

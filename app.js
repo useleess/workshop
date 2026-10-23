@@ -4,7 +4,7 @@
 // talks to Discord or any AI. The live data sits on the one-commit "data" branch of the repo (the bot
 // replaces it in place); ?data=<folder> reads another data folder, ?poll=<seconds> checks faster.
 
-const SITE_VERSION = '5'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
+const SITE_VERSION = '6'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
 const params = new URLSearchParams(location.search);
 const DATA = params.get('data') || 'https://raw.githubusercontent.com/useleess/workshop/data';
 const POLL_MS = Math.max(2, Number(params.get('poll')) || 45) * 1000;
@@ -744,7 +744,9 @@ function renderBar() {
     + (view === 'office' && group.length > 1
       ? `<div class="floors">${group.map((f) => `<button class="floor-btn${f.id === current ? ' on' : ''}" data-go="${f.id}">${f.name}</button>`).join('')}</div>` : '')
     + `<div class="note">${notes[view === 'dashboard' ? 'dashboard' : inDungeon ? 'dungeon' : 'released']}</div>`
+    + '<span id="live" class="live ok">Live</span>'
     + `<button class="tab dash${view === 'dashboard' ? ' on' : ''}" data-go="dashboard">Dashboard</button>`;
+  showLive();
 }
 
 function showFloor(id) {
@@ -822,11 +824,28 @@ async function poll() {
     renderScores();
     if (view === 'dashboard') renderDashboard();
     if (!busy) settle();
+    lastOk = Date.now();
+    pollFailed = false;
   } catch (err) {
     console.warn('workshop: could not load data', err);
+    pollFailed = true;
   }
+  showLive();
   setTimeout(poll, POLL_MS);
 }
+
+// "Live · updated 20 s ago" / "Can't reach the live data": shows at a glance whether updates arrive.
+let lastOk = Date.now();
+let pollFailed = false;
+function showLive() {
+  const live = document.getElementById('live');
+  if (!live) return;
+  const ago = Math.round((Date.now() - lastOk) / 1000);
+  const ok = !pollFailed && ago < POLL_MS / 1000 * 3;
+  live.className = 'live ' + (ok ? 'ok' : 'bad');
+  live.textContent = ok ? `Live · updated ${ago < 5 ? 'just now' : ago + ' s ago'}` : "Can't reach the live data";
+}
+setInterval(showLive, 5000);
 
 const bar = document.getElementById('bar');
 const stageWrap = document.getElementById('stage-wrap');
