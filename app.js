@@ -4,7 +4,7 @@
 // talks to Discord or any AI. The live data comes from the one-commit "data" branch, published into data/ next
 // to this page on every update; ?data=<folder> reads another data folder, ?poll=<seconds> checks faster.
 
-const SITE_VERSION = '14'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
+const SITE_VERSION = '15'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
 const params = new URLSearchParams(location.search);
 const DATA = params.get('data') || 'data';
 const POLL_MS = Math.max(2, Number(params.get('poll')) || 15) * 1000;
@@ -34,6 +34,49 @@ let current = 'f1';
 let view = 'office';
 let busy = 0;
 let mail = null;
+// pushes on their way through the office (testing -> shipped or sent back), for the watchdog
+const openJobs = new Set();
+let brokenAt = 0; // an animation step crashed: the office no longer matches the data
+let lastMove = Date.now(); // when something last finished walking or moving
+
+// ---------- watchdog ----------
+// A crate must never stay stuck: background tabs pause the animations, and a step that crashes leaves
+// the office "busy" forever. Both are healed by loading the live state again.
+const STUCK_MS = 5 * 60000;
+let hiddenAt = document.hidden ? Date.now() : 0;
+let visibleSince = document.hidden ? 0 : Date.now();
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    hiddenAt = Date.now();
+    visibleSince = 0;
+    return;
+  }
+  visibleSince = Date.now();
+  // back after a long time away: show what is true now instead of replaying old animations
+  if (hiddenAt && Date.now() - hiddenAt > STUCK_MS && (busy || openJobs.size)) location.reload();
+  hiddenAt = 0;
+});
+function watchdog() {
+  if (document.hidden || !visibleSince) return;
+  const now = Date.now();
+  if (brokenAt && now - brokenAt > 10000) {
+    console.warn('workshop: an animation step failed, loading the live state again');
+    location.reload();
+    return;
+  }
+  // the data says this push is over (shipped, or a newer push of the mod started), its crate is still here and
+  // nothing in the office has moved for a minute: stuck (a queue of pushes keeps people walking, that is fine)
+  const idle = now - Math.max(lastMove, visibleSince);
+  for (const job of openJobs) {
+    const over = job.pushedAt || job.supersededAt;
+    if (over && idle > 60000) {
+      console.warn('workshop: a crate got stuck, loading the live state again', job.version);
+      location.reload();
+      return;
+    }
+  }
+}
+setInterval(watchdog, 15000);
 
 // ---------- small helpers ----------
 
@@ -64,7 +107,7 @@ const sleep = (ms) => new Promise((done) => setTimeout(done, ms / speed()));
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const kindName = (kind) => (kind === 'bug' ? 'Bug' : 'Idea');
 
-async function waitFor(test, ms = 60000) {
+async function waitFor(test, ms = Infinity) { // a paused (background) tab just waits longer
   const end = Date.now() + ms;
   for (;;) {
     const value = test();
@@ -78,7 +121,10 @@ class Queue {
   constructor() { this.tail = Promise.resolve(); }
   push(job) {
     busy++;
-    this.tail = this.tail.then(job).catch((err) => console.error(err)).finally(() => {
+    this.tail = this.tail.then(job).catch((err) => {
+      console.error(err);
+      if (!brokenAt) brokenAt = Date.now(); // the watchdog reloads the live state
+    }).finally(() => {
       busy--;
       if (!busy) settle();
     });
@@ -102,6 +148,7 @@ async function walk(ch, points, px = 170) {
     const anim = ch.animate([{ left: x0 + 'px', top: y0 + 'px' }, { left: x + 'px', top: y + 'px' }],
       { duration: (dist / px) * 1000 / speed(), easing: 'linear', fill: 'forwards' });
     await anim.finished;
+    lastMove = Date.now();
     at(ch, x, y);
     anim.cancel();
   }
@@ -120,6 +167,7 @@ async function move(thing, x, y, ms = 400, lift = 0) {
   frames.push({ left: x + 'px', top: y + 'px' });
   const anim = thing.animate(frames, { duration: ms / speed(), easing: 'ease-in-out', fill: 'forwards' });
   await anim.finished;
+  lastMove = Date.now();
   at(thing, x, y);
   anim.cancel();
 }
@@ -638,7 +686,7 @@ async function packAndTest(M, event) { // the finished boxes become one crate, c
   restack(M);
   refreshDesk(M, 'Done! Off to testing', 'done');
   await sleep(600);
-  const station = await waitFor(() => F.stations.find((s) => !s.busy), 600000);
+  const station = await waitFor(() => F.stations.find((s) => !s.busy));
   station.busy = true;
   const out = [M.x + 176, M.y - 10];
   await walk(M.builder, [[M.x + 96, M.y - 10]]);
@@ -672,6 +720,7 @@ function freeStation(station) {
 }
 
 function unpack(M, job, crate) { // a crate that failed comes back: its boxes go back on the desk to be fixed
+  openJobs.delete(job);
   crate.remove();
   for (const item of job.packed.items) addBox(M, { ...item, status: 'in-progress' }, 'desk');
   M.job = null;
@@ -682,7 +731,9 @@ function unpack(M, job, crate) { // a crate that failed comes back: its boxes go
 
 function onTesting(M, event) {
   busy++; // held until the crate is shipped or comes back
+  if (M.job && openJobs.has(M.job)) M.job.supersededAt = Date.now(); // a newer push of the mod: that one is over
   const job = M.job = { version: event.version, kind: event.kind, packed: null, progress: null, testsOk: false };
+  openJobs.add(job);
   queue('desk:' + M.mod.key).push(async () => {
     job.packed = await packAndTest(M, event);
     showTally(job.packed.station, job.progress);
@@ -746,7 +797,7 @@ function onJudged(M, event) {
   if (!job || job.version !== event.version || !job.testsOk) return; // failed tests already sent it back
   const F = M.F;
   queue('ship:' + F.id).push(async () => {
-    await waitFor(() => job.packed, 600000);
+    await waitFor(() => job.packed);
     const s = F.shipper;
     const { station, crate } = job.packed;
     await walk(s, [[990, station.y + 60]]);
@@ -777,8 +828,9 @@ function onPush(M, event) {
   const job = M.job;
   M.mod.version = event.version;
   if (job && job.version === event.version) {
+    job.pushedAt = Date.now();
     queue('ship:f1').push(async () => { // uploaded: the waiting crate goes onto the truck(s)
-      await waitFor(() => job.staged, 900000);
+      await waitFor(() => job.staged);
       const f1 = floors.f1;
       const s = f1.shipper;
       const crate = job.staged;
@@ -788,6 +840,7 @@ function onPush(M, event) {
       f1.staging = f1.staging.filter((c) => c !== crate);
       await deliver(s, f1, crate, event.kind);
       await walk(s, [f1.home]);
+      openJobs.delete(job);
       M.job = null;
       busy--;
       refreshDesk(M);
