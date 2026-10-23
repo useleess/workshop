@@ -4,7 +4,7 @@
 // talks to Discord or any AI. The live data comes from the one-commit "data" branch, published into data/ next
 // to this page on every update; ?data=<folder> reads another data folder, ?poll=<seconds> checks faster.
 
-const SITE_VERSION = '13'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
+const SITE_VERSION = '14'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
 const params = new URLSearchParams(location.search);
 const DATA = params.get('data') || 'data';
 const POLL_MS = Math.max(2, Number(params.get('poll')) || 15) * 1000;
@@ -937,10 +937,15 @@ function setView(go) {
   fit();
 }
 
+// The office fills the window below the bar: as big as both width and height allow (also above 1800 x 800),
+// centred; phones (narrow) keep it at the top instead of floating mid-screen.
 function fit() {
-  const scale = Math.min(1, stageWrap.clientWidth / 1800);
-  stage.style.transform = `scale(${scale})`;
-  stageWrap.style.height = 800 * scale + 'px';
+  const width = stageWrap.clientWidth, height = Math.max(240, window.innerHeight - bar.offsetHeight);
+  const scale = Math.min(width / 1800, height / 800);
+  const wrapHeight = width < 700 ? 800 * scale : height;
+  const left = (width - 1800 * scale) / 2, top = (wrapHeight - 800 * scale) / 2;
+  stage.style.transform = `translate(${left}px, ${top}px) scale(${scale})`;
+  stageWrap.style.height = wrapHeight + 'px';
 }
 
 // ---------- data ----------
