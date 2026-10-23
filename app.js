@@ -694,16 +694,17 @@ async function deliver(s, G, crate, kind) {
 
 function depart(T) {
   busy++;
+  const loaded = [T.gh, T.mr].filter((t) => t.querySelector('.crate')); // an empty truck stays parked
   T.leaving = (async () => {
-    for (const t of [T.gh, T.mr]) t.classList.add('gone');
+    for (const t of loaded) t.classList.add('gone');
     await new Promise((done) => setTimeout(done, 2200));
-    for (const t of [T.gh, T.mr]) {
+    for (const t of loaded) {
       t.querySelectorAll('.crate').forEach((c) => c.remove());
       t.classList.add('hide');
       t.classList.remove('gone');
     }
     await new Promise((done) => setTimeout(done, 300));
-    for (const t of [T.gh, T.mr]) t.classList.remove('hide');
+    for (const t of loaded) t.classList.remove('hide');
     T.count = 0;
     T.leaving = null;
     busy--;
