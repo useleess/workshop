@@ -3,7 +3,7 @@
 Open http://127.0.0.1:8123/?data=data-test&poll=3 and run:
 
     simulate.py reset                         copy the real status into data-test, empty event log
-    simulate.py request <mod> [count]         new Discord requests (the mailman delivers them)
+    simulate.py request <mod> [count] [bug|request]   new Discord requests (the mailman delivers them)
     simulate.py start <mod> <id>              item in progress (the fetcher takes it to the desk)
     simulate.py done <mod> <id>               item done (it moves to the READY pile)
     simulate.py push <mod> <testers|beta|release>   pack the READY pile into a crate and ship it
@@ -46,12 +46,13 @@ def emit(status, event):
     print(f"#{n} {event}")
 
 
-def request(key, count=1):
+def request(key, count=1, kind=None):
+    forced = kind
     status = load("status.json")
     mod = mod_of(status, key)
     for _ in range(count):
         new_id = max([i["id"] for i in mod["items"]] + [100]) + 1
-        kind = "bug" if new_id % 3 == 0 else "request"
+        kind = forced or ("bug" if new_id % 3 == 0 else "request")
         item = {"id": new_id, "title": f"Test {('bug' if kind == 'bug' else 'idea')} #{new_id}", "kind": kind,
                 "status": "reported", "votes": 0}
         mod["items"].append(item)
@@ -153,7 +154,7 @@ def main(args):
         save("events.json", {"events": []})
         print(f"data-test reset (starts at event {status['last_event']})")
     elif cmd == "request":
-        request(args[1], int(args[2]) if len(args) > 2 else 1)
+        request(args[1], int(args[2]) if len(args) > 2 else 1, args[3] if len(args) > 3 else None)
     elif cmd == "start":
         set_status(args[1], args[2], "in-progress")
     elif cmd == "done":
