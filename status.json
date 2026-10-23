@@ -1,0 +1,234 @@
+{
+ "generated": "2026-10-31T08:35:19Z",
+ "last_event": 2373,
+ "discord": "https://discord.gg/fkNcMPTPuy",
+ "mods": [
+  {
+   "key": "litematica-turbo",
+   "name": "Litematica Turbo",
+   "stage": "released",
+   "version": "0.4.3",
+   "items": [
+    {
+     "id": 1,
+     "title": "ConcurrentModificationException in prepareBlockEntities on 1.21.11",
+     "kind": "bug",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-10-24"
+    }
+   ]
+  },
+  {
+   "key": "redstone-scope",
+   "name": "Redstone Scope",
+   "stage": "dungeon",
+   "version": "0.1.4",
+   "items": [
+    {
+     "id": 8,
+     "title": "Minecart features inspired by Mended Minecarts",
+     "kind": "request",
+     "status": "planned",
+     "votes": 0,
+     "lane": "with-me",
+     "since": "2026-10-27"
+    },
+    {
+     "id": 9,
+     "title": "Option to probe all blocks in a selection",
+     "kind": "request",
+     "status": "planned",
+     "votes": 0,
+     "lane": "with-me",
+     "since": "2026-10-28"
+    },
+    {
+     "id": 10,
+     "title": "Batch select all blocks of a specific type inside a selection",
+     "kind": "request",
+     "status": "planned",
+     "votes": 0,
+     "lane": "with-me",
+     "since": "2026-10-28"
+    },
+    {
+     "id": 14,
+     "title": "Hide MiniHUD's F3 overlay while the Scope window is open",
+     "kind": "request",
+     "status": "planned",
+     "votes": 0,
+     "lane": "with-me",
+     "since": "2026-10-27"
+    },
+    {
+     "id": 15,
+     "title": "Vanilla tick control: fallback without server support, default where supported",
+     "kind": "request",
+     "status": "planned",
+     "votes": 0,
+     "lane": "with-me",
+     "since": "2026-10-27"
+    },
+    {
+     "id": 22,
+     "title": "Settings as a centered window instead of a tab",
+     "kind": "request",
+     "status": "planned",
+     "votes": 0,
+     "lane": "with-me",
+     "since": "2026-10-27"
+    },
+    {
+     "id": 23,
+     "title": "Hopper lock indicator visible on sides and bottom",
+     "kind": "request",
+     "status": "done",
+     "votes": 0,
+     "lane": "with-me",
+     "since": "2026-10-28"
+    }
+   ]
+  },
+  {
+   "key": "storage-turbo",
+   "name": "Storage Turbo",
+   "stage": "dungeon",
+   "version": "0.1.1",
+   "items": []
+  },
+  {
+   "key": "carpet-singleplayer",
+   "name": "CarpetSP",
+   "stage": "dungeon",
+   "version": "0.1.4",
+   "items": [
+    {
+     "id": 1,
+     "title": "Player list hotkey (Tab) does nothing",
+     "kind": "bug",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-10-26"
+    }
+   ]
+  },
+  {
+   "key": "litematica-upgraded",
+   "name": "Litematica Upgraded",
+   "stage": "released",
+   "version": "0.2.1",
+   "items": [
+    {
+     "id": 2,
+     "title": "NPE in RenderGlobalSchematic func_174967_a line 455 on 1.12.2 (0.2.1)",
+     "kind": "bug",
+     "status": "in-progress",
+     "votes": 1,
+     "lane": "with-me",
+     "since": "2026-10-31"
+    }
+   ]
+  },
+  {
+   "key": "useleess-carpet",
+   "name": "Useleess Carpet",
+   "stage": "released",
+   "version": "0.1.4",
+   "items": [
+    {
+     "id": 1,
+     "title": "Add -XX:+UseG1GC as default JVM arg in start script",
+     "kind": "request",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-10-30"
+    }
+   ]
+  }
+ ],
+ "ideas": [
+  {
+   "title": "Carpet for 1.7",
+   "votes": 3
+  },
+  {
+   "title": "Masa Mods Keybinds in Controls",
+   "votes": 2
+  },
+  {
+   "title": "Translation Layer for 1.12",
+   "votes": 2
+  },
+  {
+   "title": "Better Easy Place",
+   "votes": 2
+  },
+  {
+   "title": "Peer to peer singleplayer-to-server mod",
+   "votes": 0
+  }
+ ],
+ "pushes": [
+  {
+   "mod": "litematica-upgraded",
+   "name": "Litematica Upgraded",
+   "version": "0.2.1",
+   "kind": "release",
+   "date": "2026-10-31"
+  },
+  {
+   "mod": "litematica-upgraded",
+   "name": "Litematica Upgraded",
+   "version": "0.2.0",
+   "kind": "release",
+   "date": "2026-10-30"
+  },
+  {
+   "mod": "litematica-upgraded",
+   "name": "Litematica Upgraded",
+   "version": "0.1.0",
+   "kind": "beta",
+   "date": "2026-10-30"
+  },
+  {
+   "mod": "useleess-carpet",
+   "name": "Useleess Carpet",
+   "version": "0.1.4",
+   "kind": "release",
+   "date": "2026-10-30"
+  },
+  {
+   "mod": "useleess-carpet",
+   "name": "Useleess Carpet",
+   "version": "0.1.3",
+   "kind": "release",
+   "date": "2026-10-30"
+  },
+  {
+   "mod": "useleess-carpet",
+   "name": "Useleess Carpet",
+   "version": "0.1.2",
+   "kind": "release",
+   "date": "2026-10-30"
+  },
+  {
+   "mod": "useleess-carpet",
+   "name": "Useleess Carpet",
+   "version": "0.1.1",
+   "kind": "release",
+   "date": "2026-10-30"
+  },
+  {
+   "mod": "useleess-carpet",
+   "name": "Useleess Carpet",
+   "version": "0.1.0",
+   "kind": "release",
+   "date": "2026-10-30"
+  }
+ ],
+ "in_flight": []
+}
