@@ -1,0 +1,513 @@
+{
+ "generated": "2026-11-28T06:09:48Z",
+ "last_event": 12129,
+ "discord": "https://discord.gg/fkNcMPTPuy",
+ "mods": [
+  {
+   "key": "litematica-turbo",
+   "name": "Litematica Turbo",
+   "stage": "released",
+   "version": "0.6.0",
+   "items": [
+    {
+     "id": 5,
+     "title": "Choose the save format for schematics (e.g. .schem) for easier sharing",
+     "kind": "request",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-11-23"
+    }
+   ]
+  },
+  {
+   "key": "redstone-scope",
+   "name": "Redstone Scope",
+   "stage": "dungeon",
+   "version": "0.2.1",
+   "items": [
+    {
+     "id": 8,
+     "title": "Minecart features inspired by Mended Minecarts",
+     "kind": "request",
+     "status": "planned",
+     "votes": 0,
+     "lane": "with-me",
+     "since": "2026-10-27"
+    },
+    {
+     "id": 9,
+     "title": "Option to probe all blocks in a selection",
+     "kind": "request",
+     "status": "planned",
+     "votes": 0,
+     "lane": "with-me",
+     "since": "2026-10-28"
+    },
+    {
+     "id": 10,
+     "title": "Batch select all blocks of a specific type inside a selection",
+     "kind": "request",
+     "status": "planned",
+     "votes": 0,
+     "lane": "with-me",
+     "since": "2026-10-28"
+    },
+    {
+     "id": 14,
+     "title": "Hide MiniHUD's F3 overlay while the Scope window is open",
+     "kind": "request",
+     "status": "planned",
+     "votes": 0,
+     "lane": "with-me",
+     "since": "2026-10-27"
+    },
+    {
+     "id": 15,
+     "title": "Vanilla tick control: fallback without server support, default where supported",
+     "kind": "request",
+     "status": "planned",
+     "votes": 0,
+     "lane": "with-me",
+     "since": "2026-10-27"
+    },
+    {
+     "id": 22,
+     "title": "Settings as a centered window instead of a tab",
+     "kind": "request",
+     "status": "planned",
+     "votes": 0,
+     "lane": "with-me",
+     "since": "2026-10-27"
+    },
+    {
+     "id": 24,
+     "title": "Smooth entities doesn't affect falling block entities",
+     "kind": "bug",
+     "status": "reported",
+     "votes": 0,
+     "lane": "with-me",
+     "since": "2026-11-22"
+    },
+    {
+     "id": 25,
+     "title": "Villager probe: entity age missing from read menu",
+     "kind": "bug",
+     "status": "done",
+     "votes": 0,
+     "lane": "with-me",
+     "since": "2026-11-19"
+    },
+    {
+     "id": 26,
+     "title": "Track block-breaking raycasts from explosions",
+     "kind": "request",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-11-19"
+    },
+    {
+     "id": 27,
+     "title": "Multiple selections: draw many boxes to probe or record at once",
+     "kind": "request",
+     "status": "planned",
+     "votes": 0,
+     "lane": "with-me",
+     "since": "2026-11-24"
+    },
+    {
+     "id": 28,
+     "title": "Killed entities stay visible during tick freeze",
+     "kind": "bug",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-11-26"
+    },
+    {
+     "id": 1,
+     "title": "Keep pinned tabs accessible while inside inventories",
+     "kind": "request",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-11-26"
+    }
+   ]
+  },
+  {
+   "key": "storage-turbo",
+   "name": "Storage Turbo",
+   "stage": "dungeon",
+   "version": "0.1.2",
+   "items": []
+  },
+  {
+   "key": "useleess-carpet-client",
+   "name": "Useleess Carpet Client",
+   "stage": "dungeon",
+   "version": "0.1.8",
+   "items": [
+    {
+     "id": 1,
+     "title": "Chunk debug tool screen stays black after pressing start",
+     "kind": "bug",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-11-27"
+    }
+   ]
+  },
+  {
+   "key": "litematica-upgraded",
+   "name": "Litematica Upgraded",
+   "stage": "released",
+   "version": "0.3.0",
+   "items": [
+    {
+     "id": 21,
+     "title": "Diagonal (45°) placement rotation for diagonal PistonBolt builds",
+     "kind": "request",
+     "status": "reported",
+     "votes": 1,
+     "lane": null,
+     "since": "2026-11-24"
+    },
+    {
+     "id": 22,
+     "title": "Stand-in swap screen has no color choices for wool/concrete",
+     "kind": "bug",
+     "status": "done",
+     "votes": 0,
+     "lane": "with-me",
+     "since": "2026-11-26"
+    },
+    {
+     "id": 23,
+     "title": "Load schematics menu takes 10+ s on first open after joining a world",
+     "kind": "bug",
+     "status": "done",
+     "votes": 0,
+     "lane": "with-me",
+     "since": "2026-11-26"
+    }
+   ]
+  },
+  {
+   "key": "useleess-carpet",
+   "name": "Useleess Carpet",
+   "stage": "released",
+   "version": "0.4.2",
+   "items": [
+    {
+     "id": 16,
+     "title": "Server OutOfMemoryError in main thread with -Xmx24M (1.12.2)",
+     "kind": "bug",
+     "status": "not-planned",
+     "votes": 1,
+     "lane": null,
+     "since": "2026-11-25"
+    },
+    {
+     "id": 17,
+     "title": "Server watchdog crash in TileEntityHopper on big furnace array (1.12.2)",
+     "kind": "bug",
+     "status": "not-planned",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-11-25"
+    },
+    {
+     "id": 1,
+     "title": "Add /backup <backupname> command",
+     "kind": "request",
+     "status": "reported",
+     "votes": 1,
+     "lane": null,
+     "since": "2026-11-27"
+    },
+    {
+     "id": 2,
+     "title": "Add /ghostDimension <overworld|end|nether>",
+     "kind": "request",
+     "status": "reported",
+     "votes": 1,
+     "lane": null,
+     "since": "2026-11-27"
+    },
+    {
+     "id": 3,
+     "title": "Add /bigtree <heightLimit|basePos|trunkSize> command",
+     "kind": "request",
+     "status": "reported",
+     "votes": 1,
+     "lane": null,
+     "since": "2026-11-27"
+    },
+    {
+     "id": 4,
+     "title": "Add /simulateCluster <x> <z> <count> command",
+     "kind": "request",
+     "status": "reported",
+     "votes": 1,
+     "lane": null,
+     "since": "2026-11-27"
+    },
+    {
+     "id": 5,
+     "title": "Add Carpet rule redstonePowerFlag",
+     "kind": "request",
+     "status": "reported",
+     "votes": 1,
+     "lane": null,
+     "since": "2026-11-27"
+    },
+    {
+     "id": 6,
+     "title": "Add Carpet rule redstonePermasuppression",
+     "kind": "request",
+     "status": "reported",
+     "votes": 1,
+     "lane": null,
+     "since": "2026-11-27"
+    },
+    {
+     "id": 10,
+     "title": "Add Carpet rule redstoneTorchPermasuppression",
+     "kind": "request",
+     "status": "reported",
+     "votes": 1,
+     "lane": null,
+     "since": "2026-11-27"
+    },
+    {
+     "id": 13,
+     "title": "Add Carpet rule suppressionCake",
+     "kind": "request",
+     "status": "reported",
+     "votes": 1,
+     "lane": null,
+     "since": "2026-11-27"
+    },
+    {
+     "id": 19,
+     "title": "Add teleportBackAfterCrash <BlockPos>",
+     "kind": "request",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-11-27"
+    },
+    {
+     "id": 20,
+     "title": "Chunk command: add asyncSwap to reload a loaded chunk on a downloader thread",
+     "kind": "request",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-11-27"
+    },
+    {
+     "id": 21,
+     "title": "Add /saveBlocks x1 y1 z1 x2 y2 z2 command",
+     "kind": "request",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-11-27"
+    },
+    {
+     "id": 22,
+     "title": "Add /fakeSavestate <ChunkPos> command",
+     "kind": "request",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-11-27"
+    },
+    {
+     "id": 23,
+     "title": "Chunk command: add void option to delete all sections in a chunk",
+     "kind": "request",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-11-27"
+    },
+    {
+     "id": 24,
+     "title": "Log how long a given chunk takes to load or unload",
+     "kind": "request",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-11-27"
+    },
+    {
+     "id": 25,
+     "title": "Log how long the async stained glass thread takes to finish",
+     "kind": "request",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-11-27"
+    },
+    {
+     "id": 26,
+     "title": "Log the order of events in the tile tick phase",
+     "kind": "request",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-11-27"
+    },
+    {
+     "id": 27,
+     "title": "Insert extra random calls into population code for RNG manipulation testing",
+     "kind": "request",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-11-27"
+    },
+    {
+     "id": 28,
+     "title": "Fix PlayerChunkMap crash at game tick 8001 with async line running",
+     "kind": "bug",
+     "status": "reported",
+     "votes": 2,
+     "lane": null,
+     "since": "2026-11-27"
+    },
+    {
+     "id": 29,
+     "title": "Fix random PlayerChunkMap ConcurrentModificationException with async line",
+     "kind": "bug",
+     "status": "reported",
+     "votes": 1,
+     "lane": null,
+     "since": "2026-11-27"
+    },
+    {
+     "id": 30,
+     "title": "Measure time difference between two events (nanoseconds or gameticks)",
+     "kind": "request",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-11-27"
+    },
+    {
+     "id": 31,
+     "title": "Add /log despawn with items, mobs, carts, boats parameters",
+     "kind": "request",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-11-27"
+    },
+    {
+     "id": 32,
+     "title": "Simulate lag at chosen points in code (e.g. falling block swap race)",
+     "kind": "request",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-11-27"
+    },
+    {
+     "id": 33,
+     "title": "/carpet schematic save: pasted blocks have no inventories",
+     "kind": "bug",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-11-28"
+    }
+   ]
+  }
+ ],
+ "ideas": [
+  {
+   "title": "Carpet for 1.7",
+   "votes": 4
+  },
+  {
+   "title": "Better Easy Place",
+   "votes": 3
+  },
+  {
+   "title": "Custom HotBar whitelist",
+   "votes": 3
+  },
+  {
+   "title": "Creative menu # search.",
+   "votes": 3
+  },
+  {
+   "title": "Missing falling block rendering.",
+   "votes": 3
+  }
+ ],
+ "pushes": [
+  {
+   "mod": "useleess-carpet",
+   "name": "Useleess Carpet",
+   "version": "0.4.2",
+   "kind": "release",
+   "date": "2026-11-27"
+  },
+  {
+   "mod": "useleess-carpet",
+   "name": "Useleess Carpet",
+   "version": "0.4.1",
+   "kind": "beta",
+   "date": "2026-11-26"
+  },
+  {
+   "mod": "useleess-carpet-client",
+   "name": "Useleess Carpet Client",
+   "version": "0.1.8",
+   "kind": "testers",
+   "date": "2026-11-22"
+  },
+  {
+   "mod": "litematica-turbo",
+   "name": "Litematica Turbo",
+   "version": "0.6.0",
+   "kind": "beta",
+   "date": "2026-11-21"
+  },
+  {
+   "mod": "litematica-upgraded",
+   "name": "Litematica Upgraded",
+   "version": "0.3.0",
+   "kind": "beta",
+   "date": "2026-11-20"
+  },
+  {
+   "mod": "useleess-carpet",
+   "name": "Useleess Carpet",
+   "version": "0.4.0",
+   "kind": "beta",
+   "date": "2026-11-19"
+  },
+  {
+   "mod": "useleess-carpet",
+   "name": "Useleess Carpet",
+   "version": "0.3.0",
+   "kind": "beta",
+   "date": "2026-11-13"
+  },
+  {
+   "mod": "litematica-turbo",
+   "name": "Litematica Turbo",
+   "version": "0.5.0",
+   "kind": "beta",
+   "date": "2026-11-05"
+  }
+ ],
+ "in_flight": []
+}
