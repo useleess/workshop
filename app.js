@@ -4,7 +4,7 @@
 // talks to Discord or any AI. The live data comes from the one-commit "data" branch, published into data/ next
 // to this page on every update; ?data=<folder> reads another data folder, ?poll=<seconds> checks faster.
 
-const SITE_VERSION = '10'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
+const SITE_VERSION = '11'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
 const params = new URLSearchParams(location.search);
 const DATA = params.get('data') || 'data';
 const POLL_MS = Math.max(2, Number(params.get('poll')) || 15) * 1000;
@@ -241,10 +241,14 @@ function buildFloor(f) {
   const bench = abs('bench', 1110, 300, '<div class="wood">RELEASE JUDGE</div>');
   bench.style.zIndex = 10;
   const list = abs('checklist', 1088, 500, '<h4>Release checklist</h4><div class="abs stamp">APPROVED</div>');
-  F.checks = ['All tests pass, incl. the AI in-game test', 'New tests added for the new features and bug fixes',
-    'No personal info leaked', 'Changelog written for GitHub + Modrinth'].map((text) => {
+  // the release judge's 3 sections (discord-bot/judge.py); each push shows its real score per section
+  F.checks = [['Tests', 'builds, automated tests, tests for new code'],
+    ['Safety', 'no personal info, secrets, big files or debug code'],
+    ['Release notes', 'notes written, every request mentioned, version']].map(([section, hint]) => {
     const row = el('div', 'check', list, '<i></i>');
-    el('span', '', row).textContent = text;
+    el('span', '', row, `<b>${section}</b> <em></em><br><small>${hint}</small>`);
+    row.section = section;
+    row.score = row.querySelector('em');
     return row;
   });
   F.stamp = list.querySelector('.stamp');
@@ -659,12 +663,17 @@ async function ship(F, M, station, crate, event) {
   await move(crate, 1134, 330, 400, 30);
   for (const check of F.checks) {
     await sleep(450);
+    const score = (event.judge || {})[check.section];
+    check.score.textContent = score ? `${score[0]}/${score[1]}` : '';
     check.classList.add('on');
   }
   F.stamp.classList.add('on');
   await sleep(800);
   hold(s, crate);
-  F.checks.forEach((c) => c.classList.remove('on'));
+  F.checks.forEach((c) => {
+    c.classList.remove('on');
+    c.score.textContent = '';
+  });
   F.stamp.classList.remove('on');
   if (!crate.isConnected) return;
   if (F.type === 'ground') {

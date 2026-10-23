@@ -74,7 +74,8 @@ def push(key, kind):
     mod["version"] = f"{x}.{y}.{int(z) + (0 if '-' in mod['version'] else 1)}"
     status["pushes"].insert(0, {"mod": key, "name": mod["name"], "version": mod["version"], "kind": kind,
                                 "date": time.strftime("%Y-%m-%d")})
-    emit(status, {"type": "push", "mod": key, "version": mod["version"], "kind": kind, "items": shipped})
+    emit(status, {"type": "push", "mod": key, "version": mod["version"], "kind": kind, "items": shipped,
+                  "judge": {"Tests": [3, 3], "Safety": [4, 4], "Release notes": [3, 3]}})
 
 
 def story():
