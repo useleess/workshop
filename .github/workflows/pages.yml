@@ -1,0 +1,37 @@
+# Publishes the site (main branch) together with the live data (the one-commit "data" branch).
+# Runs when the page code changes, and when the Discord bot asks for it after uploading new data
+# (republishing refreshes GitHub's copies right away; the raw file server would keep a copy for 5 minutes).
+name: Publish site
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: site
+      - uses: actions/checkout@v4
+        with:
+          ref: data
+          path: site/data
+      - run: rm -rf site/.git site/data/.git site/.github site/tools site/.gitignore
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4
