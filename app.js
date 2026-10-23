@@ -4,7 +4,7 @@
 // talks to Discord or any AI. The live data comes from the one-commit "data" branch, published into data/ next
 // to this page on every update; ?data=<folder> reads another data folder, ?poll=<seconds> checks faster.
 
-const SITE_VERSION = '12'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
+const SITE_VERSION = '13'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
 const params = new URLSearchParams(location.search);
 const DATA = params.get('data') || 'data';
 const POLL_MS = Math.max(2, Number(params.get('poll')) || 15) * 1000;
@@ -671,9 +671,9 @@ function freeStation(station) {
   station.busy = false;
 }
 
-function unpack(M, job, crate) { // a crate that failed comes back: its boxes return to the READY pile
+function unpack(M, job, crate) { // a crate that failed comes back: its boxes go back on the desk to be fixed
   crate.remove();
-  for (const item of job.packed.items) addBox(M, item, 'ready');
+  for (const item of job.packed.items) addBox(M, { ...item, status: 'in-progress' }, 'desk');
   M.job = null;
   busy--;
   restack(M);
