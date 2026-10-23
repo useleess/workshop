@@ -4,10 +4,10 @@
 // talks to Discord or any AI. The live data sits on the one-commit "data" branch of the repo (the bot
 // replaces it in place); ?data=<folder> reads another data folder, ?poll=<seconds> checks faster.
 
-const SITE_VERSION = '6'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
+const SITE_VERSION = '7'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
 const params = new URLSearchParams(location.search);
 const DATA = params.get('data') || 'https://raw.githubusercontent.com/useleess/workshop/data';
-const POLL_MS = Math.max(2, Number(params.get('poll')) || 45) * 1000;
+const POLL_MS = Math.max(2, Number(params.get('poll')) || 15) * 1000;
 const KIND_COLOR = { testers: '#8E5BD9', beta: '#F2B544', release: '#2E9E5B' };
 const KIND_TEXT = {
   testers: 'testers push (private GitHub only)',
