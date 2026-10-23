@@ -4,7 +4,7 @@
 // talks to Discord or any AI. The live data comes from the one-commit "data" branch, published into data/ next
 // to this page on every update; ?data=<folder> reads another data folder, ?poll=<seconds> checks faster.
 
-const SITE_VERSION = '9'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
+const SITE_VERSION = '10'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
 const params = new URLSearchParams(location.search);
 const DATA = params.get('data') || 'data';
 const POLL_MS = Math.max(2, Number(params.get('poll')) || 15) * 1000;
