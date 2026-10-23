@@ -4,7 +4,7 @@
 // talks to Discord or any AI. The live data sits on the one-commit "data" branch of the repo (the bot
 // replaces it in place); ?data=<folder> reads another data folder, ?poll=<seconds> checks faster.
 
-const SITE_VERSION = '4'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
+const SITE_VERSION = '5'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
 const params = new URLSearchParams(location.search);
 const DATA = params.get('data') || 'https://raw.githubusercontent.com/useleess/workshop/data';
 const POLL_MS = Math.max(2, Number(params.get('poll')) || 45) * 1000;
@@ -690,12 +690,16 @@ async function deliver(s, G, crate, kind) {
     T.mr.appendChild(copy);
     at(copy, 30 + 30 * k, -30);
   }
+  if (!T.waiting) { // loaded trucks count as busy until they have left, so nothing redraws them away
+    T.waiting = true;
+    busy++;
+  }
   clearTimeout(T.timer);
   T.timer = setTimeout(() => depart(T), 2500 / speed());
 }
 
 function depart(T) {
-  busy++;
+  T.waiting = false;
   const loaded = [T.gh, T.mr].filter((t) => t.querySelector('.crate')); // an empty truck stays parked
   T.leaving = (async () => {
     for (const t of loaded) t.classList.add('gone');
