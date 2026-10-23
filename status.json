@@ -1,0 +1,351 @@
+{
+ "generated": "2026-11-13T19:46:46Z",
+ "last_event": 9422,
+ "discord": "https://discord.gg/fkNcMPTPuy",
+ "mods": [
+  {
+   "key": "litematica-turbo",
+   "name": "Litematica Turbo",
+   "stage": "released",
+   "version": "0.5.0",
+   "items": [
+    {
+     "id": 2,
+     "title": "Bot suggestion: hold off on Modrinth links until full release",
+     "kind": "request",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-11-10"
+    },
+    {
+     "id": 3,
+     "title": "Smooth moving/memory savings with 2+ schematics loaded (from LU #15)",
+     "kind": "request",
+     "status": "done",
+     "votes": 0,
+     "lane": "with-me",
+     "since": "2026-11-11"
+    }
+   ]
+  },
+  {
+   "key": "redstone-scope",
+   "name": "Redstone Scope",
+   "stage": "dungeon",
+   "version": "0.2.1",
+   "items": [
+    {
+     "id": 8,
+     "title": "Minecart features inspired by Mended Minecarts",
+     "kind": "request",
+     "status": "planned",
+     "votes": 0,
+     "lane": "with-me",
+     "since": "2026-10-27"
+    },
+    {
+     "id": 9,
+     "title": "Option to probe all blocks in a selection",
+     "kind": "request",
+     "status": "planned",
+     "votes": 0,
+     "lane": "with-me",
+     "since": "2026-10-28"
+    },
+    {
+     "id": 10,
+     "title": "Batch select all blocks of a specific type inside a selection",
+     "kind": "request",
+     "status": "planned",
+     "votes": 0,
+     "lane": "with-me",
+     "since": "2026-10-28"
+    },
+    {
+     "id": 14,
+     "title": "Hide MiniHUD's F3 overlay while the Scope window is open",
+     "kind": "request",
+     "status": "planned",
+     "votes": 0,
+     "lane": "with-me",
+     "since": "2026-10-27"
+    },
+    {
+     "id": 15,
+     "title": "Vanilla tick control: fallback without server support, default where supported",
+     "kind": "request",
+     "status": "planned",
+     "votes": 0,
+     "lane": "with-me",
+     "since": "2026-10-27"
+    },
+    {
+     "id": 22,
+     "title": "Settings as a centered window instead of a tab",
+     "kind": "request",
+     "status": "planned",
+     "votes": 0,
+     "lane": "with-me",
+     "since": "2026-10-27"
+    },
+    {
+     "id": 24,
+     "title": "Smooth entities doesn't affect falling block entities",
+     "kind": "bug",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-11-03"
+    }
+   ]
+  },
+  {
+   "key": "storage-turbo",
+   "name": "Storage Turbo",
+   "stage": "dungeon",
+   "version": "0.1.2",
+   "items": []
+  },
+  {
+   "key": "useleess-carpet-client",
+   "name": "Useleess Carpet Client",
+   "stage": "dungeon",
+   "version": "0.1.7",
+   "items": [
+    {
+     "id": 5,
+     "title": "Carpet world won't launch (click only), save accessed from another location",
+     "kind": "bug",
+     "status": "reported",
+     "votes": 1,
+     "lane": null,
+     "since": "2026-11-11"
+    },
+    {
+     "id": 6,
+     "title": "Make Carpet rule creativeNoClip on by default",
+     "kind": "request",
+     "status": "not-planned",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-11-13"
+    },
+    {
+     "id": 7,
+     "title": "New Carpet rule: no portal teleport while creative no clip flying",
+     "kind": "request",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-11-12"
+    }
+   ]
+  },
+  {
+   "key": "litematica-upgraded",
+   "name": "Litematica Upgraded",
+   "stage": "released",
+   "version": "0.2.5",
+   "items": [
+    {
+     "id": 8,
+     "title": "Tweakeroo NoClassDefFoundError PlacementTweaks on world join (1.12.2, LU 0.2.3)",
+     "kind": "bug",
+     "status": "not-planned",
+     "votes": 0,
+     "lane": "with-me",
+     "since": "2026-11-11"
+    },
+    {
+     "id": 12,
+     "title": "Button textures broken in GUI (0.2.5, 1.12.2)",
+     "kind": "bug",
+     "status": "reported",
+     "votes": 4,
+     "lane": null,
+     "since": "2026-11-04"
+    },
+    {
+     "id": 13,
+     "title": "Easy Place doors: only top half placed, door stays in hand",
+     "kind": "bug",
+     "status": "done",
+     "votes": 0,
+     "lane": "with-me",
+     "since": "2026-11-07"
+    },
+    {
+     "id": 14,
+     "title": "Keep block state (doors, fence gates) when replacing in Schematic Edit mode",
+     "kind": "request",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-11-06"
+    },
+    {
+     "id": 15,
+     "title": "Smooth moving/memory savings stop working with 2+ schematics loaded",
+     "kind": "bug",
+     "status": "done",
+     "votes": 0,
+     "lane": "with-me",
+     "since": "2026-11-11"
+    },
+    {
+     "id": 16,
+     "title": "Easy Place fills cauldrons (should place them empty)",
+     "kind": "bug",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-11-11"
+    },
+    {
+     "id": 17,
+     "title": "Smooth movement/memory feature fails with multiple schematics",
+     "kind": "bug",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-11-11"
+    },
+    {
+     "id": 18,
+     "title": "Pull single items from shulker boxes like \"Take it Out\"",
+     "kind": "request",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-11-11"
+    },
+    {
+     "id": 19,
+     "title": "Client OutOfMemoryError (GC overhead limit) with Litematica Chunk Batcher thread",
+     "kind": "bug",
+     "status": "reported",
+     "votes": 2,
+     "lane": null,
+     "since": "2026-11-13"
+    }
+   ]
+  },
+  {
+   "key": "useleess-carpet",
+   "name": "Useleess Carpet",
+   "stage": "released",
+   "version": "0.3.0",
+   "items": [
+    {
+     "id": 10,
+     "title": "/customrecipe: resizable chest GUI (1-5 rows) + server texture pack",
+     "kind": "request",
+     "status": "not-planned",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-11-13"
+    },
+    {
+     "id": 13,
+     "title": "Server OutOfMemoryError in File IO Thread (1.12.2, -Xmx2072M)",
+     "kind": "bug",
+     "status": "not-planned",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-11-13"
+    },
+    {
+     "id": 14,
+     "title": "Bot sleeping via /player <bot> autosleep sub-command",
+     "kind": "request",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-11-13"
+    }
+   ]
+  }
+ ],
+ "ideas": [
+  {
+   "title": "Carpet for 1.7",
+   "votes": 4
+  },
+  {
+   "title": "Better Easy Place",
+   "votes": 3
+  },
+  {
+   "title": "Custom HotBar whitelist",
+   "votes": 3
+  },
+  {
+   "title": "Creative menu # search.",
+   "votes": 3
+  },
+  {
+   "title": "Masa Mods Keybinds in Controls",
+   "votes": 2
+  }
+ ],
+ "pushes": [
+  {
+   "mod": "useleess-carpet",
+   "name": "Useleess Carpet",
+   "version": "0.3.0",
+   "kind": "beta",
+   "date": "2026-11-13"
+  },
+  {
+   "mod": "litematica-turbo",
+   "name": "Litematica Turbo",
+   "version": "0.5.0",
+   "kind": "beta",
+   "date": "2026-11-05"
+  },
+  {
+   "mod": "useleess-carpet-client",
+   "name": "Useleess Carpet Client",
+   "version": "0.1.7",
+   "kind": "testers",
+   "date": "2026-11-04"
+  },
+  {
+   "mod": "litematica-upgraded",
+   "name": "Litematica Upgraded",
+   "version": "0.2.5",
+   "kind": "beta",
+   "date": "2026-11-04"
+  },
+  {
+   "mod": "litematica-upgraded",
+   "name": "Litematica Upgraded",
+   "version": "0.2.4",
+   "kind": "beta",
+   "date": "2026-11-04"
+  },
+  {
+   "mod": "useleess-carpet",
+   "name": "Useleess Carpet",
+   "version": "0.2.1",
+   "kind": "beta",
+   "date": "2026-11-04"
+  },
+  {
+   "mod": "redstone-scope",
+   "name": "Redstone Scope",
+   "version": "0.2.1",
+   "kind": "testers",
+   "date": "2026-11-02"
+  },
+  {
+   "mod": "storage-turbo",
+   "name": "Storage Turbo",
+   "version": "0.1.2",
+   "kind": "testers",
+   "date": "2026-11-02"
+  }
+ ],
+ "in_flight": []
+}
