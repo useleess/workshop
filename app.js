@@ -4,7 +4,7 @@
 // talks to Discord or any AI. The live data comes from the one-commit "data" branch, published into data/ next
 // to this page on every update; ?data=<folder> reads another data folder, ?poll=<seconds> checks faster.
 
-const SITE_VERSION = '8'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
+const SITE_VERSION = '9'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
 const params = new URLSearchParams(location.search);
 const DATA = params.get('data') || 'data';
 const POLL_MS = Math.max(2, Number(params.get('poll')) || 15) * 1000;
@@ -323,6 +323,9 @@ function setTip(thing, text) {
 const itemColor = (item) => (item.kind === 'bug' ? '#E56B5D' : '#F2B544');
 
 function restack(M) {
+  // the most-voted request in the row gets a star, so players and Useleess see what matters most
+  const top = M.board.reduce((best, e) => ((e.item.votes || 0) > (best ? best.item.votes || 0 : 0) ? e : best), null);
+  M.board.forEach((e) => e.el.classList.toggle('star', e === top));
   M.board.forEach((entry, k) => {
     entry.el.classList.toggle('hidden', k >= PER_ROW);
     if (k < PER_ROW) at(entry.el, ...blockXY(M, k));
@@ -757,9 +760,12 @@ function showFloor(id) {
 function renderDashboard() {
   const order = { 'in-progress': 0, done: 1, planned: 2, reported: 3 };
   const cards = status.mods.map((m) => {
-    const items = [...m.items].sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9) || a.id - b.id);
+    // most "me too" votes first, then by progress, then oldest first
+    const items = [...m.items].sort((a, b) => (b.votes || 0) - (a.votes || 0)
+      || (order[a.status] ?? 9) - (order[b.status] ?? 9) || a.id - b.id);
     const rows = items.map((i) => `<div class="req"><span class="id">#${i.id}</span><span class="k">${kindName(i.kind)}</span>
-      <span class="t">${esc(i.title)}</span><span class="chip ${esc(i.status)}">${STATUS_TEXT[i.status] || esc(i.status)}</span></div>`).join('');
+      <span class="t">${esc(i.title)}</span><span class="votes">${i.votes ? '👍 ' + i.votes : ''}</span>
+      <span class="chip ${esc(i.status)}">${STATUS_TEXT[i.status] || esc(i.status)}</span></div>`).join('');
     return `<div class="card"><div class="card-head"><h3>${esc(m.name)}</h3>
       <span class="stage-chip" style="background:${m.stage === 'dungeon' ? '#F2B544' : '#8FE3B0'}">${m.stage === 'dungeon' ? 'Beta Dungeon' : 'Released'}</span>
       <span class="version">v${esc(m.version)}</span><span class="n">${items.length} open ${items.length === 1 ? 'request' : 'requests'}</span></div>
@@ -821,6 +827,7 @@ async function poll() {
       lastSeen = event.n;
       dispatch(event);
     }
+    syncVotes();
     renderScores();
     if (view === 'dashboard') renderDashboard();
     if (!busy) settle();
@@ -832,6 +839,20 @@ async function poll() {
   }
   showLive();
   setTimeout(poll, POLL_MS);
+}
+
+// "me too" votes change without an event: copy them from the snapshot onto the boxes and blocks
+function syncVotes() {
+  for (const mod of status.mods) {
+    const M = model[mod.key];
+    if (!M) continue;
+    const votes = new Map(mod.items.map((i) => [i.id, i.votes || 0]));
+    for (const where of ['board', 'desk', 'ready']) {
+      for (const e of M[where]) if (votes.has(e.item.id)) e.item.votes = votes.get(e.item.id);
+    }
+    M.board.forEach((e) => setTip(e.el, itemTip(M, e.item, 'board')));
+    restack(M);
+  }
 }
 
 // "Live · updated 20 s ago" / "Can't reach the live data": shows at a glance whether updates arrive.

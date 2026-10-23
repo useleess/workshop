@@ -80,6 +80,8 @@ button { font: inherit; color: inherit; }
 .board .legend i { display: inline-block; width: 10px; height: 10px; border: 2px solid var(--ink); margin-right: 4px; vertical-align: -1px; }
 .board .legend a { margin-left: auto; color: #FFFFFF; font-size: 13px; }
 .block { position: absolute; width: 26px; height: 26px; border: 3px solid var(--ink); border-radius: 4px; padding: 0; cursor: pointer; z-index: 31; }
+.block.star::before { content: "★"; position: absolute; right: -13px; top: -16px; font-size: 21px; line-height: 1; color: #FFD84A;
+  -webkit-text-stroke: 1.5px var(--ink); }
 .more { position: absolute; height: 26px; padding: 0 6px; border: 3px solid var(--ink); border-radius: 4px; background: #FFFFFF; color: var(--ink);
   font: 700 13px Fredoka, sans-serif; cursor: pointer; z-index: 31; }
 
@@ -233,6 +235,7 @@ button { font: inherit; color: inherit; }
 .req .id { width: 30px; font-weight: 800; color: var(--muted); }
 .req .k { width: 34px; font-size: 12px; font-weight: 800; color: var(--muted); }
 .req .t { flex: 1; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+.req .votes { width: 46px; text-align: right; font-size: 13px; font-weight: 800; color: var(--blue); }
 .chip { border-radius: 6px; padding: 2px 8px; font-size: 12px; font-weight: 800; white-space: nowrap; }
 .chip.reported { background: #E3E8EE; }
 .chip.planned { background: #CFE0EE; }
