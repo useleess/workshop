@@ -16,7 +16,7 @@ import time
 from pathlib import Path
 
 SITE = Path(__file__).resolve().parent.parent
-REAL = SITE / "data"
+REAL = SITE.parent / "discord-bot" / "site-data"  # the bot's copy of the live data (read only here)
 TEST = SITE / "data-test"
 
 
