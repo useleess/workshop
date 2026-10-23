@@ -7,6 +7,7 @@ Open http://127.0.0.1:8123/?data=data-test&poll=3 and run:
     simulate.py start <mod> <id>              item in progress (the fetcher takes it to the desk)
     simulate.py done <mod> <id>               item done (it moves to the READY pile)
     simulate.py push <mod> <testers|beta|release>   pack the READY pile into a crate and ship it
+    simulate.py staged <mod> <kind> [total] [failed]   push with live tester count (failed > 0 = crate returns)
     simulate.py story                         a scripted demo of everything, with pauses
 """
 import json
@@ -78,6 +79,40 @@ def push(key, kind):
                   "judge": {"Tests": [3, 3], "Safety": [4, 4], "Release notes": [3, 3]}})
 
 
+def staged(key, kind, total=300, failed=0):
+    """A push the way the real push command reports it: crate to a tester, live count, judge, upload."""
+    status = load("status.json")
+    mod = mod_of(status, key)
+    shipped = [i["id"] for i in mod["items"] if i["status"] == "done"]
+    x, y, z = (mod["version"].split("-")[0].split(".") + ["0", "0"])[:3]
+    version = f"{x}.{y}.{int(z) + (0 if '-' in mod['version'] else 1)}"
+    emit(status, {"type": "testing", "mod": key, "version": version, "kind": kind, "items": shipped})
+    time.sleep(20)  # builder packs and walks to the tester
+    passed = 0
+    for step in range(1, 9):
+        done = total * step // 8
+        bad = failed * step // 8
+        emit(load("status.json"), {"type": "test_progress", "mod": key, "version": version, "total": total,
+                                   "passed": done - bad, "failed": bad, "skipped": 0})
+        passed = done - bad
+        time.sleep(3)
+    ok = failed == 0
+    score = {"Tests": [4 if ok else 3, 4], "Safety": [4, 4], "Release notes": [3, 3]}
+    emit(load("status.json"), {"type": "tests_done", "mod": key, "version": version, "ok": ok, "total": total,
+                               "passed": passed, "failed": failed, "skipped": 0})
+    emit(load("status.json"), {"type": "judged", "mod": key, "version": version, "ok": ok, "score": score})
+    if not ok:
+        return
+    time.sleep(25)  # uploads to GitHub / Modrinth
+    status = load("status.json")
+    mod = mod_of(status, key)
+    mod["items"] = [i for i in mod["items"] if i["id"] not in shipped]
+    mod["version"] = version
+    status["pushes"].insert(0, {"mod": key, "name": mod["name"], "version": version, "kind": kind,
+                                "date": time.strftime("%Y-%m-%d")})
+    emit(status, {"type": "push", "mod": key, "version": version, "kind": kind, "items": shipped, "judge": score})
+
+
 def story():
     status = load("status.json")
     released = [m["key"] for m in status["mods"] if m["stage"] == "released"]
@@ -123,6 +158,8 @@ def main(args):
         set_status(args[1], args[2], "done")
     elif cmd == "push":
         push(args[1], args[2])
+    elif cmd == "staged":
+        staged(args[1], args[2], int(args[3]) if len(args) > 3 else 300, int(args[4]) if len(args) > 4 else 0)
     elif cmd == "story":
         story()
     else:
