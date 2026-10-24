@@ -4,7 +4,7 @@
 // talks to Discord or any AI. The live data comes from the one-commit "data" branch, published into data/ next
 // to this page on every update; ?data=<folder> reads another data folder, ?poll=<seconds> checks faster.
 
-const SITE_VERSION = '17'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
+const SITE_VERSION = '18'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
 const params = new URLSearchParams(location.search);
 const DATA = params.get('data') || 'data';
 const POLL_MS = Math.max(2, Number(params.get('poll')) || 15) * 1000;
@@ -26,8 +26,11 @@ const VERDICT = { auto: ['AUTOPILOT', '#8FE3B0'], 'with-me': ['WITH USELEESS', '
   out: ['NOT PLANNED', '#B8C0C8'], front: ['ANSWERED', '#FFFFFF'] };
 const LANE_X = { auto: 184, 'with-me': 362 };
 const LANE_MAX = 5;
-const FRONT_MAX = 14;
-const FRONT_ROW = 7;
+const FRONT_MAX = 8;
+const FRONT_ROW = 4;
+const NAMETAG = 'useless'; // the name on the front desk (user's wording)
+const CLERK_SEAT = [214, 310]; // the user's person, behind the front desk on Floor 1
+const GET_UP = [300, 296]; // where the person stands up, at the right end of the counter
 const AISLE = 352;
 const MAIL_STAND = [20, 395];
 const SLOTS = [[380, 310], [620, 310], [380, 560], [620, 560], [140, 560]];
@@ -298,14 +301,20 @@ function buildFloor(f) {
     <div class="lane-bg with-me" style="left:${LANE_X['with-me'] - 34}px"><b>WITH USELEESS</b><small>waits for Useleess</small></div>
     <div class="legend"><span><i style="background:#F2B544"></i>idea</span><span><i style="background:#E56B5D"></i>bug</span>
     <a href="${esc(status.discord || '#')}">Want something built? Suggest it in our Discord</a></div>`);
-  // the front desk: new requests wait here for Useleess's decision
-  abs('zone-front', 0, 266);
-  F.counter = abs('counter', 30, 300, `<div class="counter-top"></div><div class="counter-front"><b>FRONT DESK</b>
-    <span class="counter-note"></span></div>`);
-  F.counterNote = F.counter.querySelector('.counter-note');
-  abs('tray info', 8, 484, '<b>MORE INFO?</b><small>asked the player</small>');
-  abs('tray out', 172, 484, '<b>NOT PLANNED</b>');
-  F.frontMore = { front: abs('more ticket-more hidden', 0, 0), info: abs('more ticket-more hidden', 0, 0), out: abs('more ticket-more hidden', 0, 0) };
+  if (f.type === 'ground') {
+    // the one front desk (Floor 1): every mod's new requests wait here for Useleess's decision; his person sits
+    // behind it and carries each accepted request to its mod's to-do board (by elevator to other floors)
+    abs('zone-front', 0, 266);
+    F.clerk = makeChar(room, { head: '#F5C9A8', cap: '#5865A8', torso: '#5865A8', label: NAMETAG, cls: 'seated',
+      x: CLERK_SEAT[0], y: CLERK_SEAT[1] });
+    abs('inbox', 36, 314);
+    F.counter = abs('counter', 30, 300, `<div class="counter-top"></div><div class="counter-front"><b>FRONT DESK</b>
+      <span class="counter-note"></span></div>`);
+    F.counterNote = F.counter.querySelector('.counter-note');
+    abs('nametag', 218, 350).textContent = NAMETAG;
+    abs('tray info', 8, 484, '<b>MORE INFO?</b><small>asked the player</small>');
+    F.frontMore = { front: abs('more ticket-more hidden', 0, 0), info: abs('more ticket-more hidden', 0, 0) };
+  }
   F.score = abs('score', 856, 18);
   F.elevator = abs('elevator', 1220, 96, `<div class="num">${f.type === 'dungeon' ? f.name : f.id.slice(1)}</div>
     <div class="inside"></div><div class="ld"></div><div class="rd"></div>`);
@@ -394,11 +403,10 @@ function buildMod(F, mod, slot, row) {
 function laneXY(M, lane, k) { return [LANE_X[lane] + 32 * Math.min(k, LANE_MAX - 1), 67 + 32 * M.row]; }
 function deskXY(M, k) { return [M.x + 110, M.y + 24 - 22 * Math.min(k, 3)]; }
 function readyXY(M, k) { return [M.x - 44, M.y + 86 - 24 * Math.min(k, 3)]; }
-// the front desk's counter (2 rows), the MORE INFO tray by the door and the NOT PLANNED tray
+// the front desk's inbox (2 rows) and the MORE INFO tray by the door, both on Floor 1
 const TRAY = {
-  front: { max: FRONT_MAX, xy: (k) => [40 + 36 * (k % FRONT_ROW), 312 + 30 * Math.floor(k / FRONT_ROW)] },
+  front: { max: FRONT_MAX, xy: (k) => [44 + 36 * (k % FRONT_ROW), 318 + 25 * Math.floor(k / FRONT_ROW)] },
   info: { max: 4, xy: (k) => [16 + 36 * k, 508] },
-  out: { max: 3, xy: (k) => [180 + 36 * k, 508] },
 };
 
 function itemTip(M, item, where) {
@@ -465,7 +473,7 @@ function restack(M) {
   M.readyCount.textContent = '+' + (M.ready.length - 4);
   M.readyLabel.classList.toggle('hidden', !M.ready.length);
   refreshDesk(M);
-  restackFloor(M.F);
+  restackDesk();
 }
 
 function refreshDesk(M, text, cls) {
@@ -489,10 +497,12 @@ function refreshDesk(M, text, cls) {
   }
 }
 
-// the front desk and its two trays hold the tickets of every mod on the floor, oldest first
-function restackFloor(F) {
-  const mods = F.mods.map((m) => model[m.key]).filter(Boolean);
-  for (const where of ['front', 'info', 'out']) {
+// the front desk and the MORE INFO tray hold the tickets of every mod (all floors), oldest first
+function restackDesk() {
+  const D = floors.f1;
+  if (!D || !D.counterNote) return;
+  const mods = Object.values(model);
+  for (const where of ['front', 'info']) {
     const list = mods.flatMap((M) => M[where]).sort((a, b) => a.seq - b.seq);
     const { max, xy } = TRAY[where];
     const full = list.length > max;
@@ -501,7 +511,7 @@ function restackFloor(F) {
       at(entry.el, ...xy(Math.min(k, max - 1)));
       setTip(entry.el, itemTip(entry.M, entry.item, where));
     });
-    const more = F.frontMore[where];
+    const more = D.frontMore[where];
     more.classList.toggle('hidden', !full);
     if (full) {
       at(more, ...xy(max - 1));
@@ -509,7 +519,7 @@ function restackFloor(F) {
     }
     if (where === 'front') {
       const oldest = list.map((e) => e.item.since).filter(Boolean).sort()[0];
-      F.counterNote.textContent = list.length
+      D.counterNote.textContent = list.length
         ? `${list.length} waiting for Useleess${oldest ? ' · oldest since ' + niceDate(oldest) : ''}`
         : 'nothing waiting · Useleess decides here';
     }
@@ -521,8 +531,8 @@ function addEntry(M, item, where, pending) {
   let thing;
   if (where === 'board') thing = makeThing(M.F.room, 'block', '', itemColor(item));
   else if (where === 'desk' || where === 'ready') thing = makeThing(M.F.room, 'box' + (item.lane === 'auto' ? ' auto' : ''), '', itemColor(item));
-  else {
-    thing = makeThing(M.F.room, 'ticket' + (where === 'out' ? ' gone' : ''), '', itemColor(item));
+  else { // front desk / more info: on Floor 1; not planned: not shown (it has left)
+    thing = makeThing(floors.f1.room, 'ticket' + (where === 'out' ? ' gone-out' : ''), '', itemColor(item));
     el('span', 'num', thing).textContent = '#' + item.id;
     thing.style.borderLeftColor = HEADS[M.slot];
   }
@@ -548,12 +558,12 @@ function buildAll() {
       for (const item of mod.items) addEntry(M, item, whereOf(item));
       restack(M);
     });
-    // tickets at the front desk and in the trays: the longest waiting first
-    const tickets = f.mods.flatMap((m) => ['front', 'info', 'out'].flatMap((w) => model[m.key][w]));
-    tickets.sort((a, b) => (a.item.since || '').localeCompare(b.item.since || '') || a.item.id - b.item.id)
-      .forEach((e) => { e.seq = ++seq; });
-    restackFloor(F);
   }
+  // tickets at the front desk and in the tray: the longest waiting first
+  const tickets = Object.values(model).flatMap((M) => ['front', 'info'].flatMap((w) => M[w]));
+  tickets.sort((a, b) => (a.item.since || '').localeCompare(b.item.since || '') || a.item.id - b.item.id)
+    .forEach((e) => { e.seq = ++seq; });
+  restackDesk();
   openJobs.clear(); // (only rebuilt when nothing is moving, or on start: no live crates are lost here)
   for (const flight of status.in_flight || []) restoreFlight(flight);
   mail = { pending: [], running: false, man: null };
@@ -670,22 +680,13 @@ function onRequest(event) {
   if (!mail.running) mailTrip();
 }
 
-// the mailman walks behind the front desk's counter to its left end, where he drops the letters
-const TO_STAND = [[AISLE, 280], [20, 280], MAIL_STAND];
-const FROM_STAND = [[20, 280], [AISLE, 280], ELEV_OUT];
-
+// the mailman brings every mod's letters to the one front desk on Floor 1 (by the door)
 async function mailTrip() {
   mail.running = true;
   await sleep(400); // requests that arrive together go in one trip
   const letters = mail.pending.splice(0);
   const f1 = floors.f1;
   const man = mail.man;
-  const byFloor = new Map();
-  for (const e of letters) {
-    const F = model[e.mod].F;
-    if (!byFloor.has(F)) byFloor.set(F, []);
-    byFloor.get(F).push(e);
-  }
   try {
     mail.count.textContent = '×' + letters.length;
     mail.count.classList.toggle('hidden', letters.length < 2);
@@ -697,21 +698,7 @@ async function mailTrip() {
     f1.door.classList.add('open');
     await walk(man, [[-70, 395], MAIL_STAND]);
     f1.door.classList.remove('open');
-    let here = f1;
-    for (const [F, list] of byFloor) {
-      if (F !== here) {
-        await walk(man, FROM_STAND);
-        await elevatorRide(man, here, F);
-        here = F;
-        await walk(man, TO_STAND);
-      }
-      for (const e of list) await postLetter(F, man, e);
-    }
-    if (here !== f1) {
-      await walk(man, FROM_STAND);
-      await elevatorRide(man, here, f1);
-      await walk(man, TO_STAND);
-    }
+    for (const e of letters) await postLetter(f1, man, e);
     f1.door.classList.add('open');
     await walk(man, [[-70, 395]]);
     f1.door.classList.remove('open');
@@ -728,7 +715,8 @@ async function mailTrip() {
   else if (!busy) settle();
 }
 
-// a new request: its letter goes onto the front desk (or straight to its place, for a request that arrives decided)
+// a new request: its letter goes into the front desk's inbox (a request that arrives already decided goes
+// straight to its place)
 async function postLetter(F, man, e) {
   const M = model[e.mod];
   if (findEntry(M, e.item)) return;
@@ -738,8 +726,10 @@ async function postLetter(F, man, e) {
   setTip(letter, `New Discord request for ${M.mod.name}`);
   const [hx, hy] = pos(man);
   at(letter, hx + 24, hy + 38);
-  const entry = addEntry(M, item, whereOf(item), true);
-  await move(letter, ...pos(entry.el), 700, 40);
+  const where = whereOf(item);
+  const atDesk = where === 'front' || where === 'info';
+  const entry = addEntry(M, item, where, atDesk);
+  await move(letter, ...(atDesk ? pos(entry.el) : TRAY.front.xy(0)), 700, 40);
   letter.remove();
   entry.el.classList.remove('pending');
 }
@@ -751,33 +741,88 @@ function eventLane(M, event) {
   return snap && snap.status === event.status ? snap.lane || null : null;
 }
 
-// a decision or any other move between the front desk, the trays and the board: a stamp shows what was
-// decided, then the ticket (or block) flies to its new place
+// the person at the front desk does one walk at a time; decisions in a row wait their turn
+let clerkTurn = Promise.resolve();
+function withClerk(job) {
+  const run = clerkTurn.then(job);
+  clerkTurn = run.catch(() => {});
+  return run;
+}
+
+// the person gets up, takes the ticket, walks (elevator to the mod's floor if needed), pins it in its lane on
+// that floor's to-do board, and goes back to the desk
+async function carryToBoard(M, ticket, entry, done) {
+  const D = floors.f1;
+  const c = D.clerk;
+  await walk(c, [GET_UP]);
+  ticket.classList.add('flying');
+  await move(ticket, GET_UP[0] + 14, GET_UP[1] + 36, 400, 20);
+  ticket.classList.remove('flying');
+  hold(c, ticket);
+  done(); // the stamp goes once the ticket is in hand
+  let here = D;
+  if (M.F !== D) {
+    await walk(c, [[AISLE, 280]]);
+    await elevatorRide(c, D, M.F);
+    here = M.F;
+  }
+  const [bx] = pos(entry.el);
+  const stand = [clamp(bx - 14, 160, 540), 286];
+  await walk(c, here === D ? [[AISLE, 286], stand] : [[AISLE + 200, 280], stand]);
+  ticket.classList.add('flying');
+  await move(ticket, ...pos(entry.el), 500, 30);
+  ticket.remove();
+  entry.el.classList.remove('pending');
+  if (here !== D) {
+    await walk(c, [[AISLE + 200, 280]]);
+    await elevatorRide(c, here, D);
+  }
+  await walk(c, [[AISLE, 286], GET_UP, CLERK_SEAT]);
+  c.classList.add('seated');
+}
+
+// a decision or any other move between the front desk, the tray and the boards: a stamp shows what was
+// decided; then the person carries an accepted request to its board, a rejected one fades away, a request sent
+// back to the player goes to the MORE INFO tray (and comes back to the desk when answered)
 async function relocate(M, found, item) {
   const where = whereOf(item);
   const from = found.entry.el;
   M[found.where].splice(M[found.where].indexOf(found.entry), 1);
-  const verdictKey = where === 'board' ? laneOf(item) : where;
+  const room = from.closest('.room');
   let stamp = null;
   if (where !== found.where || found.where === 'board') {
     const [fx, fy] = pos(from);
-    const [text, color] = VERDICT[verdictKey] || [STATUS_TEXT[item.status] || item.status, '#FFFFFF'];
-    stamp = at(el('div', 'verdict', M.F.room), Math.max(4, fx - 30), fy - 34);
+    const [text, color] = VERDICT[where === 'board' ? laneOf(item) : where] || [STATUS_TEXT[item.status] || item.status, '#FFFFFF'];
+    stamp = at(el('div', 'verdict', room), Math.max(4, fx - 30), fy - 34);
     stamp.textContent = text;
     stamp.style.background = color;
     from.classList.add('picked');
     await sleep(1600);
   }
-  const entry = addEntry(M, item, where, true); // keeps its spot while the old one flies there
+  const unstamp = () => {
+    if (!stamp) return;
+    const s = stamp;
+    stamp = null;
+    s.classList.add('fade');
+    setTimeout(() => s.remove(), 400);
+  };
+  const entry = addEntry(M, item, where, true); // keeps its spot while the old one gets there
   from.classList.remove('picked');
-  from.classList.add('flying');
-  await move(from, ...pos(entry.el), 1100, where === 'board' || found.where === 'board' ? 60 : 30);
-  from.remove();
-  entry.el.classList.remove('pending');
-  if (stamp) { // the stamp stays until the request has landed in its new place
-    stamp.classList.add('fade');
-    setTimeout(() => stamp.remove(), 400);
+  if (where === 'board' && (found.where === 'front' || found.where === 'info') && floors.f1.clerk) {
+    await withClerk(() => carryToBoard(M, from, entry, unstamp));
+    return;
   }
+  if (where === 'out' || entry.el.closest('.room') !== room) { // rejected (or its new place is on another floor)
+    from.classList.add('leaving');
+    await sleep(900);
+    from.remove();
+  } else {
+    from.classList.add('flying');
+    await move(from, ...pos(entry.el), 1100, where === 'board' || found.where === 'board' ? 60 : 30);
+    from.remove();
+  }
+  entry.el.classList.remove('pending');
+  unstamp();
 }
 
 function onStatus(M, event) {
@@ -833,7 +878,7 @@ function onStatus(M, event) {
   } else {
     // decided at the front desk (planned in a lane / more info / not planned), a player's answer (back to the
     // desk), or a request put back from the desk to the board
-    queue('front:' + F.id).push(async () => {
+    queue('desk').push(async () => {
       const found = await waitFor(() => findEntry(M, event.item), 90000);
       if (!found) return;
       const item = { ...found.entry.item, status: event.status, since: (event.t || '').slice(0, 10) || today() };

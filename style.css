@@ -267,22 +267,23 @@ button { font: inherit; color: inherit; }
 /* front desk: requests wait here for Useleess's decision */
 .zone-front { left: 0; top: 266px; width: 326px; height: 274px; background: rgba(88,101,168,0.13); border-right: 4px dashed var(--wood);
   border-bottom: 4px dashed var(--wood); border-radius: 0 0 14px 0; }
-.counter { width: 266px; height: 146px; z-index: 9; }
-.counter::before { content: ""; position: absolute; left: 0; top: 0; width: 266px; height: 70px; background: #D9C29C; border: 3px solid var(--ink);
-  border-bottom: 0; border-radius: 8px 8px 0 0; box-sizing: border-box; }
+.counter { width: 266px; height: 146px; z-index: 9; pointer-events: none; }
+.inbox { width: 160px; height: 56px; background: #D9C29C; border: 3px solid var(--ink); border-bottom: 0; border-radius: 6px 6px 0 0; z-index: 9; }
+.nametag { z-index: 12; background: #FFFFFF; border: 2px solid var(--ink); border-radius: 4px; padding: 0 6px; font: 700 12px/16px Fredoka, sans-serif;
+  box-shadow: 0 2px 0 var(--ink); }
 .counter-top { position: absolute; left: -6px; top: 68px; width: 278px; height: 14px; background: var(--desk); border: 3px solid var(--ink); }
 .counter-front { position: absolute; left: 4px; top: 79px; width: 258px; height: 64px; background: var(--wood); border: 3px solid var(--ink); border-top: 0;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
 .counter-front b { background: #FFFFFF; border: 3px solid var(--ink); border-radius: 8px; padding: 0 10px; font: 700 16px Fredoka, sans-serif; box-shadow: 0 3px 0 var(--ink); }
 .counter-note { color: #FFFFFF; font-size: 12px; font-weight: 800; white-space: nowrap; }
 .tray { width: 156px; height: 56px; background: #FFF1CC; border: 3px solid var(--ink); border-radius: 8px; padding: 2px 6px; z-index: 9; white-space: nowrap; }
-.tray.out { width: 122px; background: #E3E8EE; }
 .tray b { font: 700 11px Fredoka, sans-serif; }
 .tray small { margin-left: 4px; font-size: 9px; font-weight: 800; color: var(--muted); }
 .ticket { position: absolute; width: 32px; height: 22px; padding: 0; border: 2px solid var(--ink); border-left: 6px solid var(--ink); border-radius: 3px;
   cursor: pointer; z-index: 26; box-shadow: 0 2px 0 rgba(29,36,51,0.35); transition: transform 0.2s; }
 .ticket .num { font: 700 10px/18px Fredoka, sans-serif; color: var(--ink); }
-.ticket.gone { opacity: 0.55; filter: grayscale(0.7); }
+.ticket.gone-out { display: none; }
+.leaving { opacity: 0; transform: translateY(-14px) scale(0.6); transition: opacity 0.8s, transform 0.8s; }
 .ticket-more { height: 22px; font-size: 11px; z-index: 27; }
 .pending { visibility: hidden !important; }
 .flying { z-index: 45 !important; }

@@ -6,7 +6,7 @@ Open http://127.0.0.1:8123/?data=data-test&poll=3 and run:
     simulate.py request <mod> [count] [bug|request]   new Discord requests (the mailman takes them to the front desk)
     simulate.py decide <mod> <id> <auto|with-me|more-info|not-planned>   Useleess decides at the front desk
     simulate.py answer <mod> <id>             the player answered a more-info question: back to the front desk
-    simulate.py leave <mod> <id>              a not-planned item stops being exported (~3 days later; no event)
+    simulate.py leave <mod> <id>              a not-planned item stops being exported (~3 days later; no event; the page no longer shows it anyway)
     simulate.py start <mod> <id>              item in progress (the fetcher takes it to the desk)
     simulate.py done <mod> <id>               item done (it moves to the READY pile)
     simulate.py push <mod> <testers|beta|release>   pack the READY pile into a crate and ship it
@@ -15,7 +15,7 @@ Open http://127.0.0.1:8123/?data=data-test&poll=3 and run:
     simulate.py progress <mod> <passed> [failed]       next live count for that push
     simulate.py finish <mod> [stop-at-judge|fail]      tests done, judged, uploaded (or sent back)
     simulate.py story                         a scripted demo of everything, with pauses
-    simulate.py desk-story [mod]              a scripted demo of the front desk: arrivals, all 4 decisions, an answer
+    simulate.py desk-story [mod]              a scripted demo of the front desk: arrivals, all 4 decisions, an answer, a Dungeon request
 """
 import json
 import shutil
@@ -118,6 +118,12 @@ def desk_story(key=None):
     set_status(key, ids[0], "in-progress")  # the autopilot starts building
     time.sleep(14)
     set_status(key, ids[0], "done")
+    dungeon = [m["key"] for m in load("status.json")["mods"] if m["stage"] == "dungeon"]
+    if dungeon:  # a Beta Dungeon request: same desk on Floor 1, carried down by elevator
+        print(f"Now a {dungeon[0]} request: watch the person take the elevator down.")
+        request(dungeon[0], 1)
+        time.sleep(22)
+        decide(dungeon[0], mod_of(load("status.json"), dungeon[0])["items"][-1]["id"], "auto")
 
 
 def push(key, kind):
