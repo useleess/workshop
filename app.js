@@ -4,7 +4,7 @@
 // talks to Discord or any AI. The live data comes from the one-commit "data" branch, published into data/ next
 // to this page on every update; ?data=<folder> reads another data folder, ?poll=<seconds> checks faster.
 
-const SITE_VERSION = '15'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
+const SITE_VERSION = '16'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
 const params = new URLSearchParams(location.search);
 const DATA = params.get('data') || 'data';
 const POLL_MS = Math.max(2, Number(params.get('poll')) || 15) * 1000;
@@ -43,6 +43,7 @@ let lastMove = Date.now(); // when something last finished walking or moving
 // A crate must never stay stuck: background tabs pause the animations, and a step that crashes leaves
 // the office "busy" forever. Both are healed by loading the live state again.
 const STUCK_MS = 5 * 60000;
+const FLIGHT_STALE_MS = 6 * 3600000; // a push with no news for this long crashed: show it no more (as the exporter)
 let hiddenAt = document.hidden ? Date.now() : 0;
 let visibleSince = document.hidden ? 0 : Date.now();
 document.addEventListener('visibilitychange', () => {
@@ -64,11 +65,12 @@ function watchdog() {
     location.reload();
     return;
   }
-  // the data says this push is over (shipped, or a newer push of the mod started), its crate is still here and
+  // the data says this push is over (shipped, a newer push of the mod started, or the live state no longer lists
+  // it: a crashed push the exporter dropped), its crate is still here and
   // nothing in the office has moved for a minute: stuck (a queue of pushes keeps people walking, that is fine)
   const idle = now - Math.max(lastMove, visibleSince);
   for (const job of openJobs) {
-    const over = job.pushedAt || job.supersededAt;
+    const over = job.pushedAt || job.supersededAt || job.droppedAt;
     if (over && idle > 60000) {
       console.warn('workshop: a crate got stuck, loading the live state again', job.version);
       location.reload();
@@ -461,6 +463,8 @@ function buildAll() {
       restack(M);
     });
   }
+  openJobs.clear(); // (only rebuilt when nothing is moving, or on start: no live crates are lost here)
+  for (const flight of status.in_flight || []) restoreFlight(flight);
   mail = { pending: [], running: false, man: null };
   const f1 = floors.f1;
   mail.man = makeChar(f1.room, { head: '#F5C9A8', cap: '#2B3A8C', torso: '#2B3A8C', label: 'MAILMAN', cls: 'hidden', x: -70, y: 590 });
@@ -470,6 +474,54 @@ function buildAll() {
   renderScores();
   renderBar();
   showFloor(current);
+}
+
+// A push that is already on its way when the page opens (or reloads): its crate goes straight to where the
+// events would have left it - at an AI tester with the live count, passed and waiting for the judge, or approved
+// in the loading bay - so the next test_progress / tests_done / judged / push events carry on from there.
+function restoreFlight(flight) {
+  const M = model[flight.mod];
+  if (!M || Date.now() - Date.parse(flight.updated) > FLIGHT_STALE_MS) return;
+  const F = M.F;
+  const station = flight.stage === 'shipping' ? null : F.stations.find((s) => !s.busy);
+  if (flight.stage !== 'shipping' && !station) return;
+  const wanted = new Set(flight.items || []);
+  const items = M.mod.items.filter((i) => wanted.has(i.id)); // a crate sent back unpacks these onto the desk
+  for (const where of ['ready', 'desk']) { // its boxes are packed in the crate, not on the desk any more
+    M[where].filter((e) => wanted.has(e.item.id)).forEach((e) => e.el.remove());
+    M[where] = M[where].filter((e) => !wanted.has(e.item.id));
+  }
+  restack(M);
+  const job = M.job = { version: flight.version, kind: flight.kind, packed: null, progress: flight.counts,
+    testsOk: flight.stage !== 'testing', startN: status.last_event || 0 };
+  const crate = crateFor(M, flight, wanted.size);
+  if (flight.stage === 'shipping') { // approved: waiting in the Floor 1 loading bay for its upload
+    const f1 = floors.f1;
+    const spot = [1440 + 48 * (f1.staging.length % 3), 650];
+    f1.room.appendChild(crate);
+    at(crate, ...spot);
+    f1.staging.push(crate);
+    job.packed = { crate, station: null, items };
+    job.staged = crate;
+  } else {
+    station.busy = true;
+    at(crate, 984, station.y + 16);
+    station.cover.classList.add('hidden');
+    station.what.innerHTML = `${esc(M.mod.name)} <b>v${esc(flight.version)}</b><br><span class="tally">testing…</span>`;
+    station.playing.classList.remove('hidden');
+    showTally(station, flight.counts);
+    if (flight.stage === 'judging') { // tests passed, the judge's event is on its way
+      const c = flight.counts || {};
+      station.playing.classList.add('hidden');
+      station.cover.className = 'cover pass';
+      station.cover.innerHTML = c.total ? `ALL PASSED ✓<br>${c.total.toLocaleString()} tests` : 'PASSED ✓<br>build tests';
+    } else {
+      refreshDesk(M, 'In testing...', 'test');
+    }
+    job.packed = { crate, station, items };
+  }
+  openJobs.add(job);
+  busy++; // held until the crate is shipped or comes back, like onTesting
 }
 
 function signature(mods) {
@@ -730,9 +782,12 @@ function unpack(M, job, crate) { // a crate that failed comes back: its boxes go
 }
 
 function onTesting(M, event) {
+  // the same push again (restored from the live state, or a re-run after a crash): its crate is already here
+  if (M.job && openJobs.has(M.job) && M.job.version === event.version && !M.job.failed && !M.job.pushedAt) return;
   busy++; // held until the crate is shipped or comes back
   if (M.job && openJobs.has(M.job)) M.job.supersededAt = Date.now(); // a newer push of the mod: that one is over
-  const job = M.job = { version: event.version, kind: event.kind, packed: null, progress: null, testsOk: false };
+  const job = M.job = { version: event.version, kind: event.kind, packed: null, progress: null, testsOk: false,
+    startN: event.n || 0 };
   openJobs.add(job);
   queue('desk:' + M.mod.key).push(async () => {
     job.packed = await packAndTest(M, event);
@@ -751,6 +806,7 @@ function onTestsDone(M, event) {
   const job = M.job;
   if (!job || job.version !== event.version) return;
   job.testsOk = !!event.ok; // known right away: the judge's event can follow in the same check
+  if (!event.ok) job.failed = true;
   queue('desk:' + M.mod.key).push(async () => {
     const { station, crate } = job.packed;
     showTally(station, event);
@@ -795,6 +851,7 @@ async function judgeCrate(F, crate, score, ok) { // the judge scores each sectio
 function onJudged(M, event) {
   const job = M.job;
   if (!job || job.version !== event.version || !job.testsOk) return; // failed tests already sent it back
+  if (!event.ok) job.failed = true;
   const F = M.F;
   queue('ship:' + F.id).push(async () => {
     await waitFor(() => job.packed);
@@ -1027,6 +1084,7 @@ async function poll() {
       lastSeen = event.n;
       dispatch(event);
     }
+    markDropped();
     syncVotes();
     renderScores();
     if (view === 'dashboard') renderDashboard();
@@ -1039,6 +1097,17 @@ async function poll() {
   }
   showLive();
   setTimeout(poll, POLL_MS);
+}
+
+// A push the live state no longer lists, with no event that ended it (the exporter dropped a crashed push):
+// the watchdog reloads the live state once the office has stopped moving.
+function markDropped() {
+  if (!Array.isArray(status.in_flight)) return; // older data without the list
+  for (const job of openJobs) {
+    if (job.pushedAt || job.failed || job.droppedAt || (status.last_event || 0) < job.startN) continue;
+    const mod = Object.keys(model).find((key) => model[key].job === job);
+    if (!status.in_flight.some((f) => f.mod === mod && f.version === job.version)) job.droppedAt = Date.now();
+  }
 }
 
 // "me too" votes change without an event: copy them from the snapshot onto the boxes and blocks

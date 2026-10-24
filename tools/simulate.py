@@ -8,6 +8,9 @@ Open http://127.0.0.1:8123/?data=data-test&poll=3 and run:
     simulate.py done <mod> <id>               item done (it moves to the READY pile)
     simulate.py push <mod> <testers|beta|release>   pack the READY pile into a crate and ship it
     simulate.py staged <mod> <kind> [total] [failed]   push with live tester count (failed > 0 = crate returns)
+    simulate.py begin <mod> <kind> [total] [passed]   a push left MID-TEST (reload the page: crate at the tester)
+    simulate.py progress <mod> <passed> [failed]       next live count for that push
+    simulate.py finish <mod> [stop-at-judge|fail]      tests done, judged, uploaded (or sent back)
     simulate.py story                         a scripted demo of everything, with pauses
 """
 import json
@@ -19,6 +22,8 @@ from pathlib import Path
 SITE = Path(__file__).resolve().parent.parent
 REAL = SITE.parent / "discord-bot" / "site-data"  # the bot's copy of the live data (read only here)
 TEST = SITE / "data-test"
+sys.path.insert(0, str(REAL.parent))
+from site_export import in_flight  # noqa: E402  the same "pushes on their way" list the real status has
 
 
 def load(name):
@@ -41,6 +46,7 @@ def emit(status, event):
     n = max([status["last_event"]] + [e["n"] for e in log["events"]]) + 1
     log["events"].append({"n": n, "t": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), **event})
     status["last_event"] = n
+    status["in_flight"] = in_flight(log["events"])
     save("events.json", log)
     save("status.json", status)
     print(f"#{n} {event}")
@@ -116,6 +122,60 @@ def staged(key, kind, total=300, failed=0):
     emit(status, {"type": "push", "mod": key, "version": version, "kind": kind, "items": shipped, "judge": score})
 
 
+def flight_of(key):
+    status = load("status.json")
+    flight = next((f for f in status.get("in_flight", []) if f["mod"] == key), None)
+    if not flight:
+        raise SystemExit(f"no push of {key} on its way: run begin first")
+    return status, flight
+
+
+def begin(key, kind, total=2000, passed=0):
+    status = load("status.json")
+    mod = mod_of(status, key)
+    shipped = [i["id"] for i in mod["items"] if i["status"] == "done"]
+    x, y, z = (mod["version"].split("-")[0].split(".") + ["0", "0"])[:3]
+    version = f"{x}.{y}.{int(z) + (0 if '-' in mod['version'] else 1)}"
+    emit(status, {"type": "testing", "mod": key, "version": version, "kind": kind, "items": shipped})
+    emit(load("status.json"), {"type": "test_progress", "mod": key, "version": version, "total": total,
+                               "passed": passed, "failed": 0, "skipped": 0})
+
+
+def progress(key, passed, failed=0):
+    status, flight = flight_of(key)
+    total = (flight["counts"] or {}).get("total", 2000)
+    emit(status, {"type": "test_progress", "mod": key, "version": flight["version"], "total": total,
+                  "passed": passed, "failed": failed, "skipped": 0})
+
+
+def finish(key, how=""):
+    status, flight = flight_of(key)
+    c = flight["counts"] or {"total": 0, "passed": 0, "failed": 0, "skipped": 0}
+    ok = how != "fail"
+    version, kind, shipped = flight["version"], flight["kind"], flight["items"]
+    if flight["stage"] == "testing":
+        failed = c["failed"] or (0 if ok else 3)
+        emit(status, {"type": "tests_done", "mod": key, "version": version, "ok": ok, "total": c["total"],
+                      "passed": c["total"] - failed if ok else c["passed"], "failed": failed, "skipped": 0})
+        if how == "stop-at-judge":
+            return
+    score = {"Tests": [4 if ok else 3, 4], "Safety": [4, 4], "Release notes": [3, 3]}
+    if flight["stage"] != "shipping":
+        emit(load("status.json"), {"type": "judged", "mod": key, "version": version, "ok": ok, "score": score})
+    if not ok:
+        for item_id in shipped:
+            set_status(key, item_id, "in-progress")
+        return
+    time.sleep(25)  # uploads to GitHub / Modrinth
+    status = load("status.json")
+    mod = mod_of(status, key)
+    mod["items"] = [i for i in mod["items"] if i["id"] not in shipped]
+    mod["version"] = version
+    status["pushes"].insert(0, {"mod": key, "name": mod["name"], "version": version, "kind": kind,
+                                "date": time.strftime("%Y-%m-%d")})
+    emit(status, {"type": "push", "mod": key, "version": version, "kind": kind, "items": shipped, "judge": score})
+
+
 def story():
     status = load("status.json")
     released = [m["key"] for m in status["mods"] if m["stage"] == "released"]
@@ -151,6 +211,8 @@ def main(args):
         TEST.mkdir(exist_ok=True)
         shutil.copy(REAL / "status.json", TEST / "status.json")
         status = load("status.json")
+        status["in_flight"] = []
+        save("status.json", status)
         save("events.json", {"events": []})
         print(f"data-test reset (starts at event {status['last_event']})")
     elif cmd == "request":
@@ -163,6 +225,12 @@ def main(args):
         push(args[1], args[2])
     elif cmd == "staged":
         staged(args[1], args[2], int(args[3]) if len(args) > 3 else 300, int(args[4]) if len(args) > 4 else 0)
+    elif cmd == "begin":
+        begin(args[1], args[2], *[int(a) for a in args[3:5]])
+    elif cmd == "progress":
+        progress(args[1], *[int(a) for a in args[2:4]])
+    elif cmd == "finish":
+        finish(args[1], args[2] if len(args) > 2 else "")
     elif cmd == "story":
         story()
     else:
