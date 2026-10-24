@@ -4,7 +4,7 @@
 // talks to Discord or any AI. The live data comes from the one-commit "data" branch, published into data/ next
 // to this page on every update; ?data=<folder> reads another data folder, ?poll=<seconds> checks faster.
 
-const SITE_VERSION = '21'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
+const SITE_VERSION = '22'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
 const params = new URLSearchParams(location.search);
 const DATA = params.get('data') || 'data';
 const POLL_MS = Math.max(2, Number(params.get('poll')) || 15) * 1000;
@@ -57,6 +57,8 @@ let mail = null;
 let seq = 0; // arrival order of front-desk tickets
 // pushes on their way through the office (testing -> shipped or sent back), for the watchdog
 const openJobs = new Set();
+let rebuilds = 0; // how often the office was drawn again from the data (see __office)
+const closedJobs = {}; // mod key -> { version: 'shipped' | 'returned' }, for __office
 let brokenAt = 0; // an animation step crashed: the office no longer matches the data
 let lastMove = Date.now(); // when something last finished walking or moving
 
@@ -301,8 +303,8 @@ function buildFloor(f) {
 
   // the to-do board: accepted requests in 2 lanes (Autopilot = built by AI on its own, With Useleess)
   F.board = abs('board', 24, 22, `<h2>To-do board</h2>
-    <div class="lane-bg auto" style="left:${LANE_X.auto - 34}px"><b>AUTOPILOT</b></div>
-    <div class="lane-bg with-me" style="left:${LANE_X['with-me'] - 34}px"><b>WITH USELEESS</b></div>
+    <div class="lane-bg auto" data-surface="board-lane" style="left:${LANE_X.auto - 34}px"><b>AUTOPILOT</b></div>
+    <div class="lane-bg with-me" data-surface="board-lane" style="left:${LANE_X['with-me'] - 34}px"><b>WITH USELEESS</b></div>
     <div class="legend"><span><i style="background:#F2B544"></i>idea</span><span><i style="background:#E56B5D"></i>bug</span>
     <a href="${esc(status.discord || '#')}">Want something built? Suggest it in our Discord</a></div>`);
   if (f.type === 'ground') {
@@ -311,22 +313,23 @@ function buildFloor(f) {
     abs('zone-front', 0, 266);
     F.clerk = makeChar(room, { head: '#F5C9A8', cap: '#5865A8', torso: '#5865A8', label: NAMETAG, cls: 'seated',
       x: CLERK_SEAT[0], y: CLERK_SEAT[1] });
-    abs('inbox', 36, 314);
+    abs('inbox', 36, 314).dataset.surface = 'inbox';
     F.counter = abs('counter', 30, 300, `<div class="counter-top"></div><div class="counter-front"><b>FRONT DESK</b>
       <span class="counter-note"></span></div>`);
     F.counterNote = F.counter.querySelector('.counter-note');
+    F.counter.querySelector('.counter-top').dataset.surface = 'counter';
     abs('nametag', 218, 350).textContent = NAMETAG;
-    abs('tray info', 8, 484, '<b>MORE INFO?</b><small>asked the player</small>');
+    abs('tray info', 8, 484, '<b>MORE INFO?</b><small>asked the player</small>').dataset.surface = 'tray';
     F.frontMore = { front: abs('more ticket-more hidden', 0, 0), info: abs('more ticket-more hidden', 0, 0) };
   }
   F.score = abs('score', 856, 18);
   F.elevator = abs('elevator', 1220, 96, `<div class="num">${f.type === 'dungeon' ? f.name : f.id.slice(1)}</div>
-    <div class="inside"></div><div class="ld"></div><div class="rd"></div>`);
+    <div class="inside" data-surface="elevator" data-rest="floor"></div><div class="ld"></div><div class="rd"></div>`);
 
   // test stations with an AI tester each
   STATION_Y.forEach((y, i) => {
     const station = at(el('div', 'desk station', room), 850, y);
-    station.innerHTML = `<div class="top" style="width:170px"></div><div class="front" style="width:150px"><div class="plate">AI TESTER ${i + 1}</div></div>
+    station.innerHTML = `<div class="top" data-surface="tester-desk" style="width:170px"></div><div class="front" style="width:150px"><div class="plate">AI TESTER ${i + 1}</div></div>
       <div class="monitor"><div class="game"><div class="what"></div><div class="playing hidden">PLAYING</div><div class="cover free">FREE<br>waiting for a build</div></div></div>`;
     makeChar(room, { head: '#8FE3B0', antenna: true, cls: 'seated', x: 948, y: y - 22 });
     F.stations.push({ y, busy: false, what: station.querySelector('.what'), playing: station.querySelector('.playing'),
@@ -335,7 +338,7 @@ function buildFloor(f) {
 
   // judge
   makeChar(room, { head: '#B99AE0', cap: '#1D2433', torso: '#1D2433', cls: 'seated', x: 1176, y: 294 });
-  const bench = abs('bench', 1110, 300, '<div class="wood">RELEASE JUDGE</div>');
+  const bench = abs('bench', 1110, 300, '<div class="wood" data-surface="judge-bench">RELEASE JUDGE</div>');
   bench.style.zIndex = 10;
   const list = abs('checklist', 1088, 500, '<h4>Release checklist</h4><div class="abs stamp">APPROVED</div>');
   // the release judge's 3 sections (discord-bot/judge.py); each push shows its real score per section
@@ -356,18 +359,18 @@ function buildFloor(f) {
     abs('bay-title', 1374, 30, 'LOADING<br>BAY');
     abs('bay-legend', 1374, 84, `<span>Crate tag:</span><span><i style="background:#8E5BD9"></i>testers: GitHub truck only</span>
       <span><i style="background:#F2B544"></i>beta: both trucks</span><span><i style="background:#2E9E5B"></i>release: both trucks</span>`);
-    const truck = (y, label, cab) => abs('truck', 1370, y, `<div class="box-part">${label}</div><div class="cab" style="background:${cab}"></div>
+    const truck = (y, label, cab) => abs('truck', 1370, y, `<div class="box-part" data-surface="truck">${label}</div><div class="cab" style="background:${cab}"></div>
       <div class="wheel" style="left:18px"></div><div class="wheel" style="left:140px"></div>`);
     F.trucks = { gh: truck(270, 'GitHub', '#7FB7E8'), mr: truck(490, 'Modrinth', '#2E9E5B'), count: 0, leaving: null, timer: 0 };
     // the conveyor: from the judge's bench (and down from the elevator) to the loader at the trucks
-    abs('belt h', 1296, 446);
-    abs('belt v down', 1302, 262);
+    abs('belt h', 1296, 446).dataset.surface = 'belt';
+    abs('belt v down', 1302, 262).dataset.surface = 'belt';
     F.van = abs('van hidden', -440, 560, '<div class="box-part">MAIL</div><div class="cab"></div><div class="wheel" style="left:16px"></div><div class="wheel" style="left:124px"></div>');
   } else {
     abs('upstairs-bay', 1340, 266);
     abs('upstairs-sign', 1362, 296, `Shipping happens on Floor 1. Approved crates ride the conveyor into the elevator, ${f.type === 'dungeon' ? 'up' : 'down'} to the loader at the trucks.`);
-    abs('belt h short', 1296, 446);
-    abs('belt v up', 1302, 262);
+    abs('belt h short', 1296, 446).dataset.surface = 'belt';
+    abs('belt v up', 1302, 262).dataset.surface = 'belt';
   }
 
   // the runner does every carry on the floor (board -> builder -> tester -> judge, and back when something fails)
@@ -387,8 +390,8 @@ function buildMod(F, mod, slot, row) {
   const [x, y] = SLOTS[slot];
   const M = { mod, F, x, y, row, slot, board: [], desk: [], ready: [], front: [], info: [], out: [] };
   const desk = at(el('div', 'desk', F.room), x, y);
-  desk.innerHTML = `<div class="top"></div><div class="front"><div class="plate"></div></div>
-    <div class="monitor"><div class="screen"></div></div><div class="ready-label hidden">READY</div>`;
+  desk.innerHTML = `<div class="top" data-surface="desk"></div><div class="front"><div class="plate"></div></div>
+    <div class="monitor"><div class="screen"></div></div><div class="ready-label hidden" data-surface="ready-spot">READY</div>`;
   desk.querySelector('.plate').textContent = mod.name;
   M.screen = desk.querySelector('.screen');
   M.readyLabel = desk.querySelector('.ready-label');
@@ -558,6 +561,7 @@ function addEntry(M, item, where, pending) {
 function addBox(M, item, where) { return addEntry(M, item, where).el; }
 
 function buildAll() {
+  rebuilds++;
   stage.innerHTML = '';
   floors = {};
   model = {};
@@ -616,6 +620,7 @@ function restoreFlight(flight) {
     at(crate, ...beltSpot(f1.staging.length - 1));
     job.packed = { crate, station: null, items };
     job.staged = crate;
+    job.stage = 'staged';
   } else {
     station.busy = true;
     at(crate, 984, station.y + 16);
@@ -632,6 +637,7 @@ function restoreFlight(flight) {
       refreshDesk(M, 'In testing...', 'test');
     }
     job.packed = { crate, station, items };
+    job.stage = flight.stage === 'judging' ? 'tested' : 'testing';
   }
   openJobs.add(job);
   busy++; // held until the crate is shipped or comes back, like onTesting
@@ -1008,6 +1014,7 @@ async function toTester(M, job) { // the runner takes the crate from the desk to
   const F = M.F;
   const station = await waitFor(() => F.stations.find((s) => !s.busy));
   station.busy = true;
+  job.stage = 'to-tester';
   await runnerDo(F, async (r) => {
     await runTo(r, deskFront(M));
     await pickUp(r, job.crate);
@@ -1019,6 +1026,7 @@ async function toTester(M, job) { // the runner takes the crate from the desk to
   station.playing.classList.remove('hidden');
   refreshDesk(M, 'In testing...', 'test');
   job.packed = { crate: job.crate, station, items: job.items };
+  job.stage = 'testing';
   showTally(station, job.progress);
 }
 
@@ -1042,6 +1050,7 @@ function freeStation(station) {
 
 function unpack(M, job, crate) { // a crate that failed comes back: its requests go back on the desk to be fixed
   openJobs.delete(job);
+  (closedJobs[M.mod.key] = closedJobs[M.mod.key] || {})[job.version] = 'returned';
   crate.remove();
   for (const item of job.packed.items) addBox(M, { ...item, status: 'in-progress' }, 'desk');
   if (M.job === job) M.job = null;
@@ -1061,7 +1070,7 @@ function newJob(M, event, startN) {
   busy++; // held until the crate is shipped or comes back
   if (M.job && openJobs.has(M.job)) M.job.supersededAt = Date.now(); // a newer push of the mod: that one is over
   const job = M.job = { version: event.version, kind: event.kind, packed: null, progress: null, testsOk: false,
-    startN: startN || 0, step: null };
+    startN: startN || 0, step: null, stage: 'packing' };
   openJobs.add(job);
   return job;
 }
@@ -1098,8 +1107,10 @@ function onTestsDone(M, event) {
     if (event.ok) {
       station.cover.className = 'cover pass';
       station.cover.innerHTML = event.total ? `ALL PASSED ✓<br>${event.total.toLocaleString()} tests` : 'PASSED ✓<br>build tests';
+      job.stage = 'tested';
       return;
     }
+    job.stage = 'returning';
     station.cover.className = 'cover fail';
     station.cover.innerHTML = `${(event.failed || 0).toLocaleString()} FAILED ✗<br>back to the builder`;
     await sleep(1800);
@@ -1140,6 +1151,7 @@ async function judgeStep(M, job, score, ok) {
   const before = F.judgeQueue;
   F.judgeQueue = before.then(() => mine);
   await before;
+  job.stage = 'to-judge';
   try {
     await runnerDo(F, async (r) => {
       await walk(r, [[pos(r)[0], CORRIDOR], [1060, CORRIDOR], [1060, station.y + 60]]);
@@ -1148,8 +1160,10 @@ async function judgeStep(M, job, score, ok) {
       await walk(r, [[1060, 420], [1150, 420]]);
       await move(crate, ...BENCH, 400, 30);
     });
+    job.stage = 'judging';
     await judgeCrate(F, crate, score, ok);
     if (!ok) { // rejected: the runner takes it back to the designer
+      job.stage = 'returning';
       await runnerDo(F, async (r) => {
         await walk(r, [[pos(r)[0], CORRIDOR], [1150, CORRIDOR], [1150, 420]]);
         await pickUp(r, crate);
@@ -1157,6 +1171,7 @@ async function judgeStep(M, job, score, ok) {
       });
       return;
     }
+    job.stage = 'conveyor';
     await convey(F, crate); // approved: onto the conveyor
   } finally {
     release();
@@ -1203,6 +1218,7 @@ async function ride(F, crate, job) {
   crate.riding = false;
   restackBelt();
   job.staged = crate;
+  job.stage = 'staged';
 }
 
 function restackBelt() { // waiting crates move up to the belt's end as the loader takes the first ones
@@ -1214,6 +1230,7 @@ function restackBelt() { // waiting crates move up to the belt's end as the load
 
 function finishJob(M, job) {
   openJobs.delete(job);
+  (closedJobs[M.mod.key] = closedJobs[M.mod.key] || {})[job.version] = 'shipped';
   if (M.job === job) M.job = null;
   busy--;
   if (model[M.mod.key] === M) refreshDesk(M);
@@ -1225,6 +1242,7 @@ function shipStep(M, job, kind) { // uploaded: the loader takes the crate off th
     await loaderDo(async (l) => {
       const f1 = floors.f1;
       const crate = job.staged;
+      job.stage = 'loading';
       await walk(l, [[pos(crate)[0] + 2, BELT_Y + 56]]);
       await pickUp(l, crate);
       f1.staging = f1.staging.filter((c) => c !== crate);
@@ -1498,3 +1516,25 @@ window.addEventListener('resize', fit);
   fit();
   setTimeout(poll, POLL_MS);
 })();
+
+// ---------- read-only hook for the automatic check (tools/check/check.py): where everything is ----------
+// items: "<mod>#<id>" -> front | info | out | board:<lane> | desk | ready | crate (packed into a push);
+// an item that is in somebody's hands is in none of these. pushes: the crate of each open push and its stage.
+window.__office = {
+  snapshot() {
+    const items = {};
+    const pushes = {};
+    for (const M of Object.values(model)) {
+      const key = M.mod.key;
+      for (const where of WHERE) {
+        for (const e of M[where]) items[`${key}#${e.item.id}`] = where === 'board' ? 'board:' + laneOf(e.item) : where;
+      }
+      const job = M.job;
+      if (job && openJobs.has(job)) {
+        pushes[key] = { version: job.version, kind: job.kind, stage: job.stage || '?' };
+        for (const i of (job.packed ? job.packed.items : job.items) || []) items[`${key}#${i.id}`] = 'crate';
+      }
+    }
+    return { items, pushes, closed: closedJobs, busy, rebuilds, last_event: lastSeen, current };
+  },
+};

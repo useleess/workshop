@@ -1,0 +1,326 @@
+{
+ "generated": "2026-10-24T00:00:00Z",
+ "last_event": 100,
+ "discord": "https://discord.gg/fkNcMPTPuy",
+ "mods": [
+  {
+   "key": "litematica-turbo",
+   "name": "Litematica Turbo",
+   "stage": "released",
+   "version": "0.4.3",
+   "items": [
+    {
+     "id": 2,
+     "title": "Litematica T fixture request 2",
+     "kind": "request",
+     "status": "planned",
+     "votes": 1,
+     "lane": "auto",
+     "since": "2026-10-20"
+    },
+    {
+     "id": 3,
+     "title": "Litematica T fixture bug 3",
+     "kind": "bug",
+     "status": "planned",
+     "votes": 0,
+     "lane": "with-me",
+     "since": "2026-10-20"
+    },
+    {
+     "id": 4,
+     "title": "Litematica T fixture request 4",
+     "kind": "request",
+     "status": "in-progress",
+     "votes": 0,
+     "lane": "auto",
+     "since": "2026-10-20"
+    },
+    {
+     "id": 5,
+     "title": "Litematica T fixture request 5",
+     "kind": "request",
+     "status": "done",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-10-20"
+    },
+    {
+     "id": 6,
+     "title": "Litematica T fixture bug 6",
+     "kind": "bug",
+     "status": "done",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-10-20"
+    },
+    {
+     "id": 7,
+     "title": "Litematica T fixture request 7",
+     "kind": "request",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-10-21"
+    },
+    {
+     "id": 8,
+     "title": "Litematica T fixture request 8",
+     "kind": "request",
+     "status": "more-info",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-10-22"
+    },
+    {
+     "id": 9,
+     "title": "Litematica T fixture request 9",
+     "kind": "request",
+     "status": "planned",
+     "votes": 3,
+     "lane": "auto",
+     "since": "2026-10-20"
+    }
+   ]
+  },
+  {
+   "key": "schematica-upgraded",
+   "name": "Schematica Upgraded",
+   "stage": "released",
+   "version": "1.0.0",
+   "items": [
+    {
+     "id": 4,
+     "title": "Schematica U fixture request 4",
+     "kind": "request",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-10-19"
+    },
+    {
+     "id": 5,
+     "title": "Schematica U fixture bug 5",
+     "kind": "bug",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-10-22"
+    },
+    {
+     "id": 6,
+     "title": "Schematica U fixture request 6",
+     "kind": "request",
+     "status": "planned",
+     "votes": 0,
+     "lane": "with-me",
+     "since": "2026-10-20"
+    },
+    {
+     "id": 7,
+     "title": "Schematica U fixture request 7",
+     "kind": "request",
+     "status": "in-progress",
+     "votes": 0,
+     "lane": "with-me",
+     "since": "2026-10-20"
+    },
+    {
+     "id": 8,
+     "title": "Schematica U fixture request 8",
+     "kind": "request",
+     "status": "done",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-10-20"
+    }
+   ]
+  },
+  {
+   "key": "redstone-scope",
+   "name": "Redstone Scope",
+   "stage": "dungeon",
+   "version": "0.1.2",
+   "items": [
+    {
+     "id": 1,
+     "title": "Redstone Sco fixture request 1",
+     "kind": "request",
+     "status": "planned",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-10-20"
+    },
+    {
+     "id": 2,
+     "title": "Redstone Sco fixture request 2",
+     "kind": "request",
+     "status": "planned",
+     "votes": 0,
+     "lane": "with-me",
+     "since": "2026-10-20"
+    },
+    {
+     "id": 4,
+     "title": "Redstone Sco fixture bug 4",
+     "kind": "bug",
+     "status": "planned",
+     "votes": 0,
+     "lane": "with-me",
+     "since": "2026-10-20"
+    },
+    {
+     "id": 7,
+     "title": "Redstone Sco fixture request 7",
+     "kind": "request",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-10-20"
+    },
+    {
+     "id": 8,
+     "title": "Redstone Sco fixture bug 8",
+     "kind": "bug",
+     "status": "reported",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-10-20"
+    },
+    {
+     "id": 13,
+     "title": "Redstone Sco fixture request 13",
+     "kind": "request",
+     "status": "in-progress",
+     "votes": 0,
+     "lane": "auto",
+     "since": "2026-10-20"
+    },
+    {
+     "id": 14,
+     "title": "Redstone Sco fixture request 14",
+     "kind": "request",
+     "status": "done",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-10-20"
+    },
+    {
+     "id": 15,
+     "title": "Redstone Sco fixture bug 15",
+     "kind": "bug",
+     "status": "done",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-10-20"
+    }
+   ]
+  },
+  {
+   "key": "storage-turbo",
+   "name": "Storage Turbo",
+   "stage": "dungeon",
+   "version": "0.1.0",
+   "items": [
+    {
+     "id": 1,
+     "title": "Storage Turb fixture request 1",
+     "kind": "request",
+     "status": "planned",
+     "votes": 0,
+     "lane": "auto",
+     "since": "2026-10-20"
+    },
+    {
+     "id": 2,
+     "title": "Storage Turb fixture request 2",
+     "kind": "request",
+     "status": "done",
+     "votes": 0,
+     "lane": null,
+     "since": "2026-10-20"
+    }
+   ]
+  },
+  {
+   "key": "carpet-singleplayer",
+   "name": "CarpetSP",
+   "stage": "dungeon",
+   "version": "0.1.4",
+   "items": []
+  }
+ ],
+ "ideas": [
+  {
+   "title": "Masa Mods Keybinds in Controls",
+   "votes": 2
+  },
+  {
+   "title": "Translation Layer for 1.12",
+   "votes": 2
+  },
+  {
+   "title": "Better Easy Place",
+   "votes": 1
+  }
+ ],
+ "pushes": [
+  {
+   "mod": "litematica-turbo",
+   "name": "Litematica Turbo",
+   "version": "0.4.3",
+   "kind": "release",
+   "date": "2026-10-24"
+  },
+  {
+   "mod": "redstone-scope",
+   "name": "Redstone Scope",
+   "version": "0.1.2",
+   "kind": "testers",
+   "date": "2026-10-24"
+  },
+  {
+   "mod": "schematica-upgraded",
+   "name": "Schematica Upgraded",
+   "version": "1.0.0",
+   "kind": "release",
+   "date": "2026-10-23"
+  },
+  {
+   "mod": "redstone-scope",
+   "name": "Redstone Scope",
+   "version": "0.1.1",
+   "kind": "testers",
+   "date": "2026-10-23"
+  },
+  {
+   "mod": "carpet-singleplayer",
+   "name": "CarpetSP",
+   "version": "0.1.4",
+   "kind": "testers",
+   "date": "2026-10-23"
+  },
+  {
+   "mod": "carpet-singleplayer",
+   "name": "CarpetSP",
+   "version": "0.1.3",
+   "kind": "testers",
+   "date": "2026-10-23"
+  },
+  {
+   "mod": "carpet-singleplayer",
+   "name": "CarpetSP",
+   "version": "0.1.2",
+   "kind": "testers",
+   "date": "2026-10-23"
+  },
+  {
+   "mod": "carpet-singleplayer",
+   "name": "CarpetSP",
+   "version": "0.1.1",
+   "kind": "testers",
+   "date": "2026-10-23"
+  }
+ ],
+ "in_flight": []
+}

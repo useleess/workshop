@@ -2,7 +2,7 @@
 
 Open http://127.0.0.1:8123/?data=data-test&poll=3 and run:
 
-    simulate.py reset                         copy the real status into data-test, empty event log
+    simulate.py reset [--from FILE]           copy the real status (or FILE) into data-test, empty event log
     simulate.py request <mod> [count] [bug|request]   new Discord requests (the mailman takes them to the front desk)
     simulate.py decide <mod> <id> <auto|with-me|more-info|not-planned>   Useleess decides at the front desk
     simulate.py answer <mod> <id>             the player answered a more-info question: back to the front desk
@@ -19,13 +19,28 @@ Open http://127.0.0.1:8123/?data=data-test&poll=3 and run:
     simulate.py desk-story [mod]              a scripted demo of the front desk: arrivals, all 4 decisions, an answer, a Dungeon request
 """
 import json
+import os
 import shutil
 import sys
 import time
 from pathlib import Path
 
 SITE = Path(__file__).resolve().parent.parent
-REAL = SITE.parent / "discord-bot" / "site-data"  # the bot's copy of the live data (read only here)
+
+
+def find_root():
+    """The mod maker folder (the one that holds discord-bot): this site may sit directly in it or in a git
+    worktree of it (the model ladder's .ladder-runs/<id>/), so walk up instead of assuming SITE.parent."""
+    for folder in [SITE, *SITE.parents]:
+        if (folder / "discord-bot" / "site_export.py").exists():
+            return folder
+    if os.environ.get("MOD_MAKER_ROOT"):  # for copies of the site kept outside the mod maker folder (the check's selftest)
+        return Path(os.environ["MOD_MAKER_ROOT"])
+    raise SystemExit("cannot find the folder that holds discord-bot above " + str(SITE))
+
+
+ROOT = find_root()
+REAL = ROOT / "discord-bot" / "site-data"  # the bot's copy of the live data (read only here)
 TEST = SITE / "data-test"
 sys.path.insert(0, str(REAL.parent))
 from site_export import in_flight  # noqa: E402  the same "pushes on their way" list the real status has
@@ -266,7 +281,8 @@ def main(args):
     cmd = args[0]
     if cmd == "reset":
         TEST.mkdir(exist_ok=True)
-        shutil.copy(REAL / "status.json", TEST / "status.json")
+        source = Path(args[2]) if len(args) > 2 and args[1] == "--from" else REAL / "status.json"
+        shutil.copy(source, TEST / "status.json")
         status = load("status.json")
         status["in_flight"] = []
         save("status.json", status)
