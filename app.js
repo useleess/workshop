@@ -4,7 +4,7 @@
 // talks to Discord or any AI. The live data comes from the one-commit "data" branch, published into data/ next
 // to this page on every update; ?data=<folder> reads another data folder, ?poll=<seconds> checks faster.
 
-const SITE_VERSION = '18'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
+const SITE_VERSION = '19'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
 const params = new URLSearchParams(location.search);
 const DATA = params.get('data') || 'data';
 const POLL_MS = Math.max(2, Number(params.get('poll')) || 15) * 1000;
@@ -297,8 +297,8 @@ function buildFloor(f) {
 
   // the to-do board: accepted requests in 2 lanes (Autopilot = built by AI on its own, With Useleess)
   F.board = abs('board', 24, 22, `<h2>To-do board</h2>
-    <div class="lane-bg auto" style="left:${LANE_X.auto - 34}px"><b>AUTOPILOT</b><small>built by AI</small></div>
-    <div class="lane-bg with-me" style="left:${LANE_X['with-me'] - 34}px"><b>WITH USELEESS</b><small>waits for Useleess</small></div>
+    <div class="lane-bg auto" style="left:${LANE_X.auto - 34}px"><b>AUTOPILOT</b></div>
+    <div class="lane-bg with-me" style="left:${LANE_X['with-me'] - 34}px"><b>WITH USELEESS</b></div>
     <div class="legend"><span><i style="background:#F2B544"></i>idea</span><span><i style="background:#E56B5D"></i>bug</span>
     <a href="${esc(status.discord || '#')}">Want something built? Suggest it in our Discord</a></div>`);
   if (f.type === 'ground') {
@@ -756,7 +756,7 @@ async function carryToBoard(M, ticket, entry, done) {
   const c = D.clerk;
   await walk(c, [GET_UP]);
   ticket.classList.add('flying');
-  await move(ticket, GET_UP[0] + 14, GET_UP[1] + 36, 400, 20);
+  await move(ticket, GET_UP[0] + 14, GET_UP[1] + 36, 250);
   ticket.classList.remove('flying');
   hold(c, ticket);
   done(); // the stamp goes once the ticket is in hand
@@ -789,6 +789,8 @@ async function relocate(M, found, item) {
   const from = found.entry.el;
   M[found.where].splice(M[found.where].indexOf(found.entry), 1);
   const room = from.closest('.room');
+  // an accepted request at the desk: the person picks it up off the desk (no hovering ticket while it waits)
+  const carry = where === 'board' && (found.where === 'front' || found.where === 'info') && floors.f1.clerk;
   let stamp = null;
   if (where !== found.where || found.where === 'board') {
     const [fx, fy] = pos(from);
@@ -796,8 +798,10 @@ async function relocate(M, found, item) {
     stamp = at(el('div', 'verdict', room), Math.max(4, fx - 30), fy - 34);
     stamp.textContent = text;
     stamp.style.background = color;
-    from.classList.add('picked');
-    await sleep(1600);
+    if (!carry) {
+      from.classList.add('picked');
+      await sleep(1600);
+    }
   }
   const unstamp = () => {
     if (!stamp) return;
@@ -808,7 +812,7 @@ async function relocate(M, found, item) {
   };
   const entry = addEntry(M, item, where, true); // keeps its spot while the old one gets there
   from.classList.remove('picked');
-  if (where === 'board' && (found.where === 'front' || found.where === 'info') && floors.f1.clerk) {
+  if (carry) {
     await withClerk(() => carryToBoard(M, from, entry, unstamp));
     return;
   }

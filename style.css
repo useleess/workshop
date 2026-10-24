@@ -261,7 +261,6 @@ button { font: inherit; color: inherit; }
 .lane-bg.auto { background: rgba(143,227,176,0.22); }
 .lane-bg.with-me { background: rgba(127,183,232,0.22); }
 .lane-bg b { display: block; margin-top: 2px; font: 700 13px/1.1 Fredoka, sans-serif; letter-spacing: 0.5px; }
-.lane-bg small { display: block; font-size: 10px; font-weight: 800; opacity: 0.9; }
 .board .row-empty { font-size: 11px; font-weight: 700; opacity: 0.55; }
 
 /* front desk: requests wait here for Useleess's decision */
