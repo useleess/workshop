@@ -4,7 +4,7 @@
 // talks to Discord or any AI. The live data comes from the one-commit "data" branch, published into data/ next
 // to this page on every update; ?data=<folder> reads another data folder, ?poll=<seconds> checks faster.
 
-const SITE_VERSION = '22'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
+const SITE_VERSION = '23'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
 const params = new URLSearchParams(location.search);
 const DATA = params.get('data') || 'data';
 const POLL_MS = Math.max(2, Number(params.get('poll')) || 15) * 1000;
@@ -361,7 +361,7 @@ function buildFloor(f) {
       <span><i style="background:#F2B544"></i>beta: both trucks</span><span><i style="background:#2E9E5B"></i>release: both trucks</span>`);
     const truck = (y, label, cab) => abs('truck', 1370, y, `<div class="box-part" data-surface="truck">${label}</div><div class="cab" style="background:${cab}"></div>
       <div class="wheel" style="left:18px"></div><div class="wheel" style="left:140px"></div>`);
-    F.trucks = { gh: truck(270, 'GitHub', '#7FB7E8'), mr: truck(490, 'Modrinth', '#2E9E5B'), count: 0, leaving: null, timer: 0 };
+    F.trucks = { gh: truck(290, 'GitHub', '#7FB7E8'), mr: truck(470, 'Modrinth', '#2E9E5B'), count: 0, leaving: null, timer: 0 };
     // the conveyor: from the judge's bench (and down from the elevator) to the loader at the trucks
     abs('belt h', 1296, 446).dataset.surface = 'belt';
     abs('belt v down', 1302, 262).dataset.surface = 'belt';
@@ -1201,12 +1201,12 @@ async function ride(F, crate, job) {
   crate.riding = true;
   if (F !== f1) { // up the lift belt into the elevator; it comes out on Floor 1 onto the belt there
     await move(crate, LIFT_X, 262, 1400);
-    await move(crate, 1252, 196, 400);
+    await move(crate, 1252, 224, 400);
     await openElevator(F, 500);
     crate.classList.add('hidden');
     await sleep(1400);
     f1.room.appendChild(crate);
-    at(crate, 1252, 196);
+    at(crate, 1252, 224);
     crate.classList.remove('hidden');
     await openElevator(f1, 500);
     await move(crate, LIFT_X, 262, 400);
