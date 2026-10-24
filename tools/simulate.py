@@ -3,7 +3,10 @@
 Open http://127.0.0.1:8123/?data=data-test&poll=3 and run:
 
     simulate.py reset                         copy the real status into data-test, empty event log
-    simulate.py request <mod> [count] [bug|request]   new Discord requests (the mailman delivers them)
+    simulate.py request <mod> [count] [bug|request]   new Discord requests (the mailman takes them to the front desk)
+    simulate.py decide <mod> <id> <auto|with-me|more-info|not-planned>   Useleess decides at the front desk
+    simulate.py answer <mod> <id>             the player answered a more-info question: back to the front desk
+    simulate.py leave <mod> <id>              a not-planned item stops being exported (~3 days later; no event)
     simulate.py start <mod> <id>              item in progress (the fetcher takes it to the desk)
     simulate.py done <mod> <id>               item done (it moves to the READY pile)
     simulate.py push <mod> <testers|beta|release>   pack the READY pile into a crate and ship it
@@ -12,6 +15,7 @@ Open http://127.0.0.1:8123/?data=data-test&poll=3 and run:
     simulate.py progress <mod> <passed> [failed]       next live count for that push
     simulate.py finish <mod> [stop-at-judge|fail]      tests done, judged, uploaded (or sent back)
     simulate.py story                         a scripted demo of everything, with pauses
+    simulate.py desk-story [mod]              a scripted demo of the front desk: arrivals, all 4 decisions, an answer
 """
 import json
 import shutil
@@ -60,17 +64,60 @@ def request(key, count=1, kind=None):
         new_id = max([i["id"] for i in mod["items"]] + [100]) + 1
         kind = forced or ("bug" if new_id % 3 == 0 else "request")
         item = {"id": new_id, "title": f"Test {('bug' if kind == 'bug' else 'idea')} #{new_id}", "kind": kind,
-                "status": "reported", "votes": 0}
+                "status": "reported", "votes": 0, "lane": None, "since": time.strftime("%Y-%m-%d")}
         mod["items"].append(item)
         emit(status, {"type": "request", "mod": key, "item": new_id, "title": item["title"], "kind": kind,
                       "status": "reported"})
 
 
-def set_status(key, item_id, new):
+def set_status(key, item_id, new, lane=None):
+    """Like the exporter: the item keeps its lane after planned, `since` = the day it entered this status."""
     status = load("status.json")
     item = next(i for i in mod_of(status, key)["items"] if i["id"] == int(item_id))
     item["status"] = new
-    emit(status, {"type": "status", "mod": key, "item": item["id"], "status": new})
+    if new == "planned" or lane:
+        item["lane"] = lane
+    item.setdefault("lane", None)
+    item["since"] = time.strftime("%Y-%m-%d")
+    emit(status, {"type": "status", "mod": key, "item": item["id"], "status": new, "lane": item["lane"]})
+
+
+DECISIONS = {"auto": ("planned", "auto"), "with-me": ("planned", "with-me"), "more-info": ("more-info", None),
+             "not-planned": ("not-planned", None)}
+
+
+def decide(key, item_id, how):
+    if how not in DECISIONS:
+        raise SystemExit(f"decision must be one of {', '.join(DECISIONS)}")
+    set_status(key, item_id, *DECISIONS[how])
+
+
+def leave(key, item_id):
+    status = load("status.json")
+    mod = mod_of(status, key)
+    mod["items"] = [i for i in mod["items"] if not (i["id"] == int(item_id) and i["status"] == "not-planned")]
+    save("status.json", status)
+    print(f"{key} #{item_id} no longer exported")
+
+
+def desk_story(key=None):
+    status = load("status.json")
+    key = key or status["mods"][0]["key"]
+    print(f"Watch the front desk of {key}'s floor.")
+    request(key, 4)
+    time.sleep(22)  # mailman delivers to the front desk
+    ids = [i["id"] for i in mod_of(load("status.json"), key)["items"] if i["status"] == "reported"][-4:]
+    for item_id, how in zip(ids, ["auto", "with-me", "more-info", "not-planned"]):
+        decide(key, item_id, how)
+        time.sleep(5)
+    time.sleep(6)
+    set_status(key, ids[2], "reported")  # the player answered
+    time.sleep(6)
+    decide(key, ids[2], "auto")
+    time.sleep(6)
+    set_status(key, ids[0], "in-progress")  # the autopilot starts building
+    time.sleep(14)
+    set_status(key, ids[0], "done")
 
 
 def push(key, kind):
@@ -217,6 +264,14 @@ def main(args):
         print(f"data-test reset (starts at event {status['last_event']})")
     elif cmd == "request":
         request(args[1], int(args[2]) if len(args) > 2 else 1, args[3] if len(args) > 3 else None)
+    elif cmd == "decide":
+        decide(args[1], args[2], args[3])
+    elif cmd == "answer":
+        set_status(args[1], args[2], "reported")
+    elif cmd == "leave":
+        leave(args[1], args[2])
+    elif cmd == "desk-story":
+        desk_story(args[1] if len(args) > 1 else None)
     elif cmd == "start":
         set_status(args[1], args[2], "in-progress")
     elif cmd == "done":

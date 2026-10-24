@@ -4,7 +4,7 @@
 // talks to Discord or any AI. The live data comes from the one-commit "data" branch, published into data/ next
 // to this page on every update; ?data=<folder> reads another data folder, ?poll=<seconds> checks faster.
 
-const SITE_VERSION = '16'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
+const SITE_VERSION = '17'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
 const params = new URLSearchParams(location.search);
 const DATA = params.get('data') || 'data';
 const POLL_MS = Math.max(2, Number(params.get('poll')) || 15) * 1000;
@@ -14,16 +14,30 @@ const KIND_TEXT = {
   beta: 'beta push (GitHub + Modrinth beta)',
   release: 'release push (GitHub + Modrinth)',
 };
-const STATUS_TEXT = { reported: 'Reported', planned: 'Planned', 'in-progress': 'Working on it', done: 'Done, in next push' };
+const STATUS_TEXT = { reported: 'At the front desk', 'more-info': 'Needs more info', planned: 'Planned',
+  'in-progress': 'Working on it', done: 'Done, in next push', 'not-planned': 'Not planned' };
+const LANE_TEXT = { auto: 'Autopilot', 'with-me': 'With Useleess' };
+const LANE_HINT = { auto: 'Autopilot: built automatically by AI', 'with-me': 'With Useleess: waits for Useleess to work on it' };
+// where an item is in the office, by its status: the front desk (waiting for Useleess's decision), sent back to the
+// player (more info), not planned (leaving), the to-do board (2 lanes), the builder's desk, the READY pile
+const WHERE_OF = { reported: 'front', 'more-info': 'info', 'not-planned': 'out', planned: 'board', 'in-progress': 'desk', done: 'ready' };
+const WHERE = ['board', 'desk', 'ready', 'front', 'info', 'out'];
+const VERDICT = { auto: ['AUTOPILOT', '#8FE3B0'], 'with-me': ['WITH USELEESS', '#7FB7E8'], info: ['MORE INFO?', '#F2B544'],
+  out: ['NOT PLANNED', '#B8C0C8'], front: ['ANSWERED', '#FFFFFF'] };
+const LANE_X = { auto: 184, 'with-me': 362 };
+const LANE_MAX = 5;
+const FRONT_MAX = 14;
+const FRONT_ROW = 7;
+const AISLE = 352;
+const MAIL_STAND = [20, 395];
 const SLOTS = [[380, 310], [620, 310], [380, 560], [620, 560], [140, 560]];
 const HEADS = ['#9ED3A8', '#F5C9D6', '#F2B544', '#7FB7E8', '#C9B8E8'];
 const STATION_Y = [290, 440, 590];
 const PER_FLOOR = 5;
-const PER_ROW = 10;
 const CORRIDOR = 470;
 const ELEV = [1244, 166];
 const ELEV_OUT = [1244, 280];
-const FETCH_HOME = [290, 290];
+const FETCH_HOME = [322, 452];
 
 let status = null;
 let lastSeen = 0;
@@ -34,6 +48,7 @@ let current = 'f1';
 let view = 'office';
 let busy = 0;
 let mail = null;
+let seq = 0; // arrival order of front-desk tickets
 // pushes on their way through the office (testing -> shipped or sent back), for the watchdog
 const openJobs = new Set();
 let brokenAt = 0; // an animation step crashed: the office no longer matches the data
@@ -108,6 +123,14 @@ const speed = () => Math.min(4, 1 + Math.max(0, busy - 3) / 4); // catch up only
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms / speed()));
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const kindName = (kind) => (kind === 'bug' ? 'Bug' : 'Idea');
+const laneOf = (item) => (item.lane === 'auto' ? 'auto' : 'with-me'); // older items without a lane: With Useleess
+const whereOf = (item) => WHERE_OF[item.status] || 'board';
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function niceDate(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || '');
+  return m ? `${MONTHS[Number(m[2]) - 1]} ${Number(m[3])}` : '';
+}
+const today = () => new Date().toISOString().slice(0, 10);
 
 async function waitFor(test, ms = Infinity) { // a paused (background) tab just waits longer
   const end = Date.now() + ms;
@@ -269,9 +292,20 @@ function buildFloor(f) {
     abs('torch', 1202, 96, '<i></i><b></b>');
   }
 
-  F.board = abs('board', 24, 22, `<h2>Discord requests</h2><div class="hint">hover a block</div>
+  // the to-do board: accepted requests in 2 lanes (Autopilot = built by AI on its own, With Useleess)
+  F.board = abs('board', 24, 22, `<h2>To-do board</h2>
+    <div class="lane-bg auto" style="left:${LANE_X.auto - 34}px"><b>AUTOPILOT</b><small>built by AI</small></div>
+    <div class="lane-bg with-me" style="left:${LANE_X['with-me'] - 34}px"><b>WITH USELEESS</b><small>waits for Useleess</small></div>
     <div class="legend"><span><i style="background:#F2B544"></i>idea</span><span><i style="background:#E56B5D"></i>bug</span>
     <a href="${esc(status.discord || '#')}">Want something built? Suggest it in our Discord</a></div>`);
+  // the front desk: new requests wait here for Useleess's decision
+  abs('zone-front', 0, 266);
+  F.counter = abs('counter', 30, 300, `<div class="counter-top"></div><div class="counter-front"><b>FRONT DESK</b>
+    <span class="counter-note"></span></div>`);
+  F.counterNote = F.counter.querySelector('.counter-note');
+  abs('tray info', 8, 484, '<b>MORE INFO?</b><small>asked the player</small>');
+  abs('tray out', 172, 484, '<b>NOT PLANNED</b>');
+  F.frontMore = { front: abs('more ticket-more hidden', 0, 0), info: abs('more ticket-more hidden', 0, 0), out: abs('more ticket-more hidden', 0, 0) };
   F.score = abs('score', 856, 18);
   F.elevator = abs('elevator', 1220, 96, `<div class="num">${f.type === 'dungeon' ? f.name : f.id.slice(1)}</div>
     <div class="inside"></div><div class="ld"></div><div class="rd"></div>`);
@@ -331,7 +365,7 @@ function esc(text) {
 
 function buildMod(F, mod, slot, row) {
   const [x, y] = SLOTS[slot];
-  const M = { mod, F, x, y, row, board: [], desk: [], ready: [] };
+  const M = { mod, F, x, y, row, slot, board: [], desk: [], ready: [], front: [], info: [], out: [] };
   const desk = at(el('div', 'desk', F.room), x, y);
   desk.innerHTML = `<div class="top"></div><div class="front"><div class="plate"></div></div>
     <div class="monitor"><div class="screen"></div></div><div class="ready-label hidden">READY</div>`;
@@ -342,24 +376,42 @@ function buildMod(F, mod, slot, row) {
   M.deskCount = at(el('div', 'count hidden', F.room), x + 140, y - 16);
   M.readyCount = at(el('div', 'count hidden', F.room), x - 50, y + 20);
   M.builder = makeChar(F.room, { head: HEADS[slot], label: 'BUILDER', cls: 'seated', x: x + 86, y: y - 4 });
-  // the mod's row on the Discord board
+  // the mod's row on the to-do board: a name, then its Autopilot lane and its With Useleess lane
   const top = 38 + 32 * row;
-  at(el('div', 'row-name', F.board), 14, top + 6).textContent = mod.name;
-  M.empty = at(el('div', 'row-empty', F.board), 162, top + 7);
-  M.empty.textContent = 'no requests';
-  M.more = at(el('button', 'more hidden', F.room), 191 + 32 * PER_ROW, 67 + 32 * row);
+  const name = at(el('div', 'row-name', F.board), 14, top + 6);
+  name.textContent = mod.name;
+  name.style.borderLeftColor = HEADS[slot]; // the same colour as the mod's builder and its front-desk tickets
+  M.empty = {};
+  M.more = {};
+  for (const lane of ['auto', 'with-me']) {
+    M.empty[lane] = at(el('div', 'row-empty', F.board), LANE_X[lane] - 25, top + 7);
+    M.empty[lane].textContent = 'empty';
+    M.more[lane] = at(el('button', 'more hidden', F.room), ...laneXY(M, lane, LANE_MAX - 1));
+  }
   return M;
 }
 
-function blockXY(M, k) { return [191 + 32 * Math.min(k, PER_ROW), 67 + 32 * M.row]; }
+function laneXY(M, lane, k) { return [LANE_X[lane] + 32 * Math.min(k, LANE_MAX - 1), 67 + 32 * M.row]; }
 function deskXY(M, k) { return [M.x + 110, M.y + 24 - 22 * Math.min(k, 3)]; }
 function readyXY(M, k) { return [M.x - 44, M.y + 86 - 24 * Math.min(k, 3)]; }
+// the front desk's counter (2 rows), the MORE INFO tray by the door and the NOT PLANNED tray
+const TRAY = {
+  front: { max: FRONT_MAX, xy: (k) => [40 + 36 * (k % FRONT_ROW), 312 + 30 * Math.floor(k / FRONT_ROW)] },
+  info: { max: 4, xy: (k) => [16 + 36 * k, 508] },
+  out: { max: 3, xy: (k) => [180 + 36 * k, 508] },
+};
 
 function itemTip(M, item, where) {
   const base = `${M.mod.name} #${item.id} ${kindName(item.kind)}: ${item.title}`;
-  if (where === 'desk') return base + ' · working on it';
-  if (where === 'ready') return base + ' · done, waits for the next push';
-  return base + (item.votes ? ` · 👍 ${item.votes}` : '');
+  const votes = item.votes ? ` · 👍 ${item.votes}` : '';
+  const auto = item.lane === 'auto' ? ' · Autopilot' : '';
+  if (where === 'desk') return base + ' · working on it' + auto;
+  if (where === 'ready') return base + ' · done, waits for the next push' + auto;
+  if (where === 'front') return base + ' · at the front desk, waiting for Useleess to decide'
+    + (item.since ? ` (since ${niceDate(item.since)})` : '') + votes;
+  if (where === 'info') return base + ' · sent back to the player: needs more details';
+  if (where === 'out') return base + ' · not planned';
+  return base + ' · ' + LANE_HINT[laneOf(item)] + votes;
 }
 
 function makeThing(parent, cls, tip, color) {
@@ -378,20 +430,25 @@ function setTip(thing, text) {
 const itemColor = (item) => (item.kind === 'bug' ? '#E56B5D' : '#F2B544');
 
 function restack(M) {
-  // the most-voted request in the row gets a star, so players and Useleess see what matters most
+  // the most-voted request on the board gets a star, so players and Useleess see what matters most
   const top = M.board.reduce((best, e) => ((e.item.votes || 0) > (best ? best.item.votes || 0 : 0) ? e : best), null);
   M.board.forEach((e) => e.el.classList.toggle('star', e === top));
-  M.board.forEach((entry, k) => {
-    entry.el.classList.toggle('hidden', k >= PER_ROW);
-    if (k < PER_ROW) at(entry.el, ...blockXY(M, k));
-  });
-  const over = M.board.length - PER_ROW;
-  M.more.classList.toggle('hidden', over <= 0);
-  if (over > 0) {
-    M.more.textContent = '+' + over;
-    setTip(M.more, `${over} more requests waiting (this row is full)`);
+  for (const lane of ['auto', 'with-me']) {
+    const list = M.board.filter((e) => laneOf(e.item) === lane);
+    const full = list.length > LANE_MAX; // the last spot becomes "+N"
+    list.forEach((entry, k) => {
+      entry.el.classList.toggle('hidden', full && k >= LANE_MAX - 1);
+      at(entry.el, ...laneXY(M, lane, k));
+      setTip(entry.el, itemTip(M, entry.item, 'board'));
+    });
+    M.more[lane].classList.toggle('hidden', !full);
+    if (full) {
+      const over = list.length - LANE_MAX + 1;
+      M.more[lane].textContent = '+' + over;
+      setTip(M.more[lane], `${over} more ${LANE_TEXT[lane]} requests for ${M.mod.name}`);
+    }
+    M.empty[lane].classList.toggle('hidden', list.length > 0);
   }
-  M.empty.classList.toggle('hidden', M.board.length > 0);
   M.desk.forEach((entry, k) => {
     entry.el.classList.toggle('hidden', k > 3);
     at(entry.el, ...deskXY(M, k));
@@ -408,6 +465,7 @@ function restack(M) {
   M.readyCount.textContent = '+' + (M.ready.length - 4);
   M.readyLabel.classList.toggle('hidden', !M.ready.length);
   refreshDesk(M);
+  restackFloor(M.F);
 }
 
 function refreshDesk(M, text, cls) {
@@ -431,18 +489,50 @@ function refreshDesk(M, text, cls) {
   }
 }
 
-function addBlock(M, item) {
-  const block = makeThing(M.F.room, 'block', itemTip(M, item, 'board'), itemColor(item));
-  M.board.push({ item, el: block });
-  restack(M);
-  return block;
+// the front desk and its two trays hold the tickets of every mod on the floor, oldest first
+function restackFloor(F) {
+  const mods = F.mods.map((m) => model[m.key]).filter(Boolean);
+  for (const where of ['front', 'info', 'out']) {
+    const list = mods.flatMap((M) => M[where]).sort((a, b) => a.seq - b.seq);
+    const { max, xy } = TRAY[where];
+    const full = list.length > max;
+    list.forEach((entry, k) => {
+      entry.el.classList.toggle('hidden', full && k >= max - 1);
+      at(entry.el, ...xy(Math.min(k, max - 1)));
+      setTip(entry.el, itemTip(entry.M, entry.item, where));
+    });
+    const more = F.frontMore[where];
+    more.classList.toggle('hidden', !full);
+    if (full) {
+      at(more, ...xy(max - 1));
+      more.textContent = '+' + (list.length - max + 1);
+    }
+    if (where === 'front') {
+      const oldest = list.map((e) => e.item.since).filter(Boolean).sort()[0];
+      F.counterNote.textContent = list.length
+        ? `${list.length} waiting for Useleess${oldest ? ' · oldest since ' + niceDate(oldest) : ''}`
+        : 'nothing waiting · Useleess decides here';
+    }
+  }
 }
-function addBox(M, item, where) {
-  const box = makeThing(M.F.room, 'box', itemTip(M, item, where), itemColor(item));
-  M[where].push({ item, el: box });
+
+// one request somewhere in the office (where: see WHERE_OF); its look follows the place
+function addEntry(M, item, where, pending) {
+  let thing;
+  if (where === 'board') thing = makeThing(M.F.room, 'block', '', itemColor(item));
+  else if (where === 'desk' || where === 'ready') thing = makeThing(M.F.room, 'box' + (item.lane === 'auto' ? ' auto' : ''), '', itemColor(item));
+  else {
+    thing = makeThing(M.F.room, 'ticket' + (where === 'out' ? ' gone' : ''), '', itemColor(item));
+    el('span', 'num', thing).textContent = '#' + item.id;
+    thing.style.borderLeftColor = HEADS[M.slot];
+  }
+  if (pending) thing.classList.add('pending'); // its spot is kept while something flies there
+  const entry = { item, el: thing, M, seq: ++seq };
+  M[where].push(entry);
   restack(M);
-  return box;
+  return entry;
 }
+function addBox(M, item, where) { return addEntry(M, item, where).el; }
 
 function buildAll() {
   stage.innerHTML = '';
@@ -455,13 +545,14 @@ function buildAll() {
     f.mods.forEach((mod, slot) => {
       const M = buildMod(F, mod, slot, slot);
       model[mod.key] = M;
-      for (const item of mod.items) {
-        if (item.status === 'in-progress') addBox(M, item, 'desk');
-        else if (item.status === 'done') addBox(M, item, 'ready');
-        else addBlock(M, item);
-      }
+      for (const item of mod.items) addEntry(M, item, whereOf(item));
       restack(M);
     });
+    // tickets at the front desk and in the trays: the longest waiting first
+    const tickets = f.mods.flatMap((m) => ['front', 'info', 'out'].flatMap((w) => model[m.key][w]));
+    tickets.sort((a, b) => (a.item.since || '').localeCompare(b.item.since || '') || a.item.id - b.item.id)
+      .forEach((e) => { e.seq = ++seq; });
+    restackFloor(F);
   }
   openJobs.clear(); // (only rebuilt when nothing is moving, or on start: no live crates are lost here)
   for (const flight of status.in_flight || []) restoreFlight(flight);
@@ -524,17 +615,16 @@ function restoreFlight(flight) {
   busy++; // held until the crate is shipped or comes back, like onTesting
 }
 
+// where each request is (board items with their lane), to compare the office with the snapshot
+const placeKey = (item, where) => `${where === 'board' ? 'board:' + laneOf(item) : where}:${item.id}`;
 function signature(mods) {
   return JSON.stringify(layout(mods).map((f) => [f.id, f.mods.map((m) => [m.key, m.name, m.version,
-    m.items.filter((i) => !['in-progress', 'done'].includes(i.status)).map((i) => i.id).sort(),
-    m.items.filter((i) => i.status === 'in-progress').map((i) => i.id).sort(),
-    m.items.filter((i) => i.status === 'done').map((i) => i.id).sort()])]));
+    m.items.map((i) => placeKey(i, whereOf(i))).sort()])]));
 }
 function modelSignature() {
   return JSON.stringify(floorList.map((f) => [f.id, f.mods.map((m) => {
     const M = model[m.key];
-    return [m.key, m.name, m.version, M.board.map((e) => e.item.id).sort(), M.desk.map((e) => e.item.id).sort(),
-      M.ready.map((e) => e.item.id).sort()];
+    return [m.key, m.name, m.version, WHERE.flatMap((w) => M[w].map((e) => placeKey(e.item, w))).sort()];
   })]));
 }
 // When nothing is moving, make sure the office matches the latest snapshot (missed events, renames...).
@@ -566,7 +656,7 @@ function dispatch(event) {
 }
 
 function findEntry(M, id) {
-  for (const where of ['board', 'desk', 'ready']) {
+  for (const where of WHERE) {
     const index = M[where].findIndex((e) => e.item.id === id);
     if (index >= 0) return { where, index, entry: M[where][index] };
   }
@@ -579,6 +669,10 @@ function onRequest(event) {
   mail.pending.push(event);
   if (!mail.running) mailTrip();
 }
+
+// the mailman walks behind the front desk's counter to its left end, where he drops the letters
+const TO_STAND = [[AISLE, 280], [20, 280], MAIL_STAND];
+const FROM_STAND = [[20, 280], [AISLE, 280], ELEV_OUT];
 
 async function mailTrip() {
   mail.running = true;
@@ -601,23 +695,23 @@ async function mailTrip() {
     await move(f1.van, -196, 560, 1500);
     man.classList.remove('hidden');
     f1.door.classList.add('open');
-    await walk(man, [[-70, 395], [20, 395]]);
+    await walk(man, [[-70, 395], MAIL_STAND]);
     f1.door.classList.remove('open');
     let here = f1;
     for (const [F, list] of byFloor) {
       if (F !== here) {
-        await walk(man, [[240, 280], ELEV_OUT]);
+        await walk(man, FROM_STAND);
         await elevatorRide(man, here, F);
         here = F;
+        await walk(man, TO_STAND);
       }
-      await walk(man, [[240, 280], [220, 262]]);
       for (const e of list) await postLetter(F, man, e);
     }
     if (here !== f1) {
-      await walk(man, [[240, 280], ELEV_OUT]);
+      await walk(man, FROM_STAND);
       await elevatorRide(man, here, f1);
+      await walk(man, TO_STAND);
     }
-    await walk(man, [[240, 280], [20, 395]]);
     f1.door.classList.add('open');
     await walk(man, [[-70, 395]]);
     f1.door.classList.remove('open');
@@ -634,20 +728,55 @@ async function mailTrip() {
   else if (!busy) settle();
 }
 
+// a new request: its letter goes onto the front desk (or straight to its place, for a request that arrives decided)
 async function postLetter(F, man, e) {
   const M = model[e.mod];
-  const item = { id: e.item, title: e.title, kind: e.kind, status: e.status || 'reported', votes: 0 };
-  if (findEntry(M, item.id)) return;
+  if (findEntry(M, e.item)) return;
+  const item = { id: e.item, title: e.title, kind: e.kind, status: e.status || 'reported', votes: 0,
+    lane: e.lane || null, since: (e.t || '').slice(0, 10) || today() };
   const letter = el('div', 'letter', F.room);
   setTip(letter, `New Discord request for ${M.mod.name}`);
   const [hx, hy] = pos(man);
   at(letter, hx + 24, hy + 38);
-  await move(letter, ...blockXY(M, M.board.length), 700, 40);
+  const entry = addEntry(M, item, whereOf(item), true);
+  await move(letter, ...pos(entry.el), 700, 40);
   letter.remove();
-  addBlock(M, item);
-  if (item.status === 'in-progress' || item.status === 'done') {
-    onStatus(M, { item: item.id, status: 'in-progress' });
-    if (item.status === 'done') onStatus(M, { item: item.id, status: 'done' });
+  entry.el.classList.remove('pending');
+}
+
+// the lane of a status event: from the event, else from the snapshot (older events carry none)
+function eventLane(M, event) {
+  if (event.lane !== undefined) return event.lane;
+  const snap = (status.mods.find((m) => m.key === M.mod.key) || { items: [] }).items.find((i) => i.id === event.item);
+  return snap && snap.status === event.status ? snap.lane || null : null;
+}
+
+// a decision or any other move between the front desk, the trays and the board: a stamp shows what was
+// decided, then the ticket (or block) flies to its new place
+async function relocate(M, found, item) {
+  const where = whereOf(item);
+  const from = found.entry.el;
+  M[found.where].splice(M[found.where].indexOf(found.entry), 1);
+  const verdictKey = where === 'board' ? laneOf(item) : where;
+  let stamp = null;
+  if (where !== found.where || found.where === 'board') {
+    const [fx, fy] = pos(from);
+    const [text, color] = VERDICT[verdictKey] || [STATUS_TEXT[item.status] || item.status, '#FFFFFF'];
+    stamp = at(el('div', 'verdict', M.F.room), Math.max(4, fx - 30), fy - 34);
+    stamp.textContent = text;
+    stamp.style.background = color;
+    from.classList.add('picked');
+    await sleep(1600);
+  }
+  const entry = addEntry(M, item, where, true); // keeps its spot while the old one flies there
+  from.classList.remove('picked');
+  from.classList.add('flying');
+  await move(from, ...pos(entry.el), 1100, where === 'board' || found.where === 'board' ? 60 : 30);
+  from.remove();
+  entry.el.classList.remove('pending');
+  if (stamp) { // the stamp stays until the request has landed in its new place
+    stamp.classList.add('fade');
+    setTimeout(() => stamp.remove(), 400);
   }
 }
 
@@ -655,29 +784,36 @@ function onStatus(M, event) {
   const F = M.F;
   if (event.status === 'in-progress') {
     queue('fetch:' + F.id).push(async () => {
-      const found = await waitFor(() => findEntry(M, event.item), 90000);
+      let found = await waitFor(() => findEntry(M, event.item), 90000);
       if (!found || found.where === 'desk') return;
       if (found.where === 'ready') {
         M.ready.splice(found.index, 1);
+        found.entry.item.status = 'in-progress';
         M.desk.push(found.entry);
         restack(M);
         return;
       }
+      if (found.where !== 'board') { // started straight from the front desk or a tray: onto the board first
+        await relocate(M, found, { ...found.entry.item, status: 'planned', lane: eventLane(M, event) || found.entry.item.lane || null });
+        found = findEntry(M, event.item);
+        if (!found || found.where !== 'board') return;
+      }
       const f = F.fetcher;
       const [bx, by] = pos(found.entry.el);
-      const stand = [clamp(bx - 14, 30, 540), 286];
-      await walk(f, [stand]);
+      const stand = [clamp(bx - 14, AISLE, 540), 286];
+      await walk(f, [[FETCH_HOME[0], CORRIDOR], [AISLE, CORRIDOR], [AISLE, 286], stand]);
       const entry = M.board.splice(M.board.indexOf(found.entry), 1)[0];
       restack(M);
       entry.el.remove();
-      const box = makeThing(F.room, 'box', itemTip(M, entry.item, 'desk'), itemColor(entry.item));
+      const item = { ...entry.item, status: 'in-progress' };
+      const box = makeThing(F.room, 'box' + (item.lane === 'auto' ? ' auto' : ''), itemTip(M, item, 'desk'), itemColor(item));
       at(box, bx, by);
       await move(box, stand[0] + 14, stand[1] + 36, 350);
       hold(f, box);
       const front = [M.x + 90, M.y + 90];
-      await walk(f, [[stand[0], CORRIDOR], [front[0], CORRIDOR], front]);
+      await walk(f, [[stand[0], 286], [AISLE, 286], [AISLE, CORRIDOR], [front[0], CORRIDOR], front]);
       await move(box, ...deskXY(M, M.desk.length), 350, 30);
-      M.desk.push({ item: { ...entry.item, status: 'in-progress' }, el: box });
+      M.desk.push({ item, el: box, M });
       restack(M);
       await walk(f, [[front[0], CORRIDOR], [FETCH_HOME[0], CORRIDOR], FETCH_HOME]);
     });
@@ -689,18 +825,33 @@ function onStatus(M, event) {
       }, 120000);
       if (!found || found.where === 'ready') return;
       M.desk.splice(found.index, 1);
+      found.entry.item.status = 'done';
       await move(found.entry.el, ...readyXY(M, M.ready.length), 600, 30);
       M.ready.push(found.entry);
       restack(M);
     });
   } else {
-    // back to reported / planned: the box goes back on the board
-    const found = findEntry(M, event.item);
-    if (found && found.where !== 'board') {
-      M[found.where].splice(found.index, 1);
-      found.entry.el.remove();
-      addBlock(M, { ...found.entry.item, status: event.status });
-    }
+    // decided at the front desk (planned in a lane / more info / not planned), a player's answer (back to the
+    // desk), or a request put back from the desk to the board
+    queue('front:' + F.id).push(async () => {
+      const found = await waitFor(() => findEntry(M, event.item), 90000);
+      if (!found) return;
+      const item = { ...found.entry.item, status: event.status, since: (event.t || '').slice(0, 10) || today() };
+      const lane = eventLane(M, event);
+      if (event.status === 'planned' || lane) item.lane = lane;
+      if (placeKey(item, whereOf(item)) === placeKey(found.entry.item, found.where)) { // already there
+        found.entry.item = item;
+        restack(M);
+        return;
+      }
+      if (found.where === 'desk' || found.where === 'ready') { // taken off the desk: straight back
+        M[found.where].splice(found.index, 1);
+        found.entry.el.remove();
+        addEntry(M, item, whereOf(item));
+        return;
+      }
+      await relocate(M, found, item);
+    });
   }
 }
 
@@ -1010,17 +1161,20 @@ function showFloor(id) {
 }
 
 function renderDashboard() {
-  const order = { 'in-progress': 0, done: 1, planned: 2, reported: 3 };
+  const order = { 'in-progress': 0, done: 1, planned: 2, reported: 3, 'more-info': 4, 'not-planned': 5 };
+  const chip = (i) => (i.status === 'planned' ? `Planned · ${LANE_TEXT[laneOf(i)]}`
+    : i.status === 'reported' && i.since ? `At the front desk since ${niceDate(i.since)}` : STATUS_TEXT[i.status] || esc(i.status));
   const cards = status.mods.map((m) => {
     // most "me too" votes first, then by progress, then oldest first
     const items = [...m.items].sort((a, b) => (b.votes || 0) - (a.votes || 0)
       || (order[a.status] ?? 9) - (order[b.status] ?? 9) || a.id - b.id);
     const rows = items.map((i) => `<div class="req"><span class="id">#${i.id}</span><span class="k">${kindName(i.kind)}</span>
       <span class="t">${esc(i.title)}</span><span class="votes">${i.votes ? '👍 ' + i.votes : ''}</span>
-      <span class="chip ${esc(i.status)}">${STATUS_TEXT[i.status] || esc(i.status)}</span></div>`).join('');
+      <span class="chip ${esc(i.status)}${i.status === 'planned' ? ' ' + laneOf(i) : ''}">${chip(i)}</span></div>`).join('');
+    const open = items.filter((i) => i.status !== 'not-planned').length;
     return `<div class="card"><div class="card-head"><h3>${esc(m.name)}</h3>
       <span class="stage-chip" style="background:${m.stage === 'dungeon' ? '#F2B544' : '#8FE3B0'}">${m.stage === 'dungeon' ? 'Beta Dungeon' : 'Released'}</span>
-      <span class="version">v${esc(m.version)}</span><span class="n">${items.length} open ${items.length === 1 ? 'request' : 'requests'}</span></div>
+      <span class="version">v${esc(m.version)}</span><span class="n">${open} open ${open === 1 ? 'request' : 'requests'}</span></div>
       ${rows || '<div class="req"><span class="t" style="color:#4A5668">No open requests right now.</span></div>'}</div>`;
   }).join('');
   const ideas = (status.ideas || []).map((i, k) => `<div class="req"><span class="id" style="color:#F2B544">${k + 1}</span>
@@ -1110,16 +1264,20 @@ function markDropped() {
   }
 }
 
-// "me too" votes change without an event: copy them from the snapshot onto the boxes and blocks
+// "me too" votes change without an event: copy them (and the "waiting since" dates) from the snapshot
 function syncVotes() {
   for (const mod of status.mods) {
     const M = model[mod.key];
     if (!M) continue;
-    const votes = new Map(mod.items.map((i) => [i.id, i.votes || 0]));
-    for (const where of ['board', 'desk', 'ready']) {
-      for (const e of M[where]) if (votes.has(e.item.id)) e.item.votes = votes.get(e.item.id);
+    const snap = new Map(mod.items.map((i) => [i.id, i]));
+    for (const where of WHERE) {
+      for (const e of M[where]) {
+        const i = snap.get(e.item.id);
+        if (!i) continue;
+        e.item.votes = i.votes || 0;
+        if (i.status === e.item.status && i.since) e.item.since = i.since; // the exporter's date wins
+      }
     }
-    M.board.forEach((e) => setTip(e.el, itemTip(M, e.item, 'board')));
     restack(M);
   }
 }
