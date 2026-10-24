@@ -4,7 +4,7 @@
 // talks to Discord or any AI. The live data comes from the one-commit "data" branch, published into data/ next
 // to this page on every update; ?data=<folder> reads another data folder, ?poll=<seconds> checks faster.
 
-const SITE_VERSION = '20'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
+const SITE_VERSION = '21'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
 const params = new URLSearchParams(location.search);
 const DATA = params.get('data') || 'data';
 const POLL_MS = Math.max(2, Number(params.get('poll')) || 15) * 1000;
@@ -40,7 +40,10 @@ const PER_FLOOR = 5;
 const CORRIDOR = 470;
 const ELEV = [1244, 166];
 const ELEV_OUT = [1244, 280];
-const FETCH_HOME = [322, 452];
+const RUNNER_HOME = [322, 452]; // each floor's runner waits here between carries
+const RUNNER_PACE = 1.6; // the runner runs: faster than everyone else
+const LOADER_HOME = [1420, 640]; // Floor 1's loader, at the end of the conveyor
+const LOAD_SPOT = [1336, 420]; // where the loader stands to put crates on the trucks
 
 let status = null;
 let lastSeen = 0;
@@ -167,6 +170,7 @@ function queue(name) {
 // ---------- movement ----------
 
 async function walk(ch, points, px = 170) {
+  if (ch.classList.contains('runner')) px *= RUNNER_PACE;
   ch.classList.add('walking');
   ch.classList.remove('seated');
   for (const [x, y] of points) {
@@ -285,7 +289,7 @@ function buildFloor(f) {
   abs('zone-label', 20, 740, '1 Design<span>builders at their desks</span>');
   abs('zone-label', 822, 740, '2 Test<span>AI plays the mod</span>');
   abs('zone-label', 1088, 740, '3 Judge<span>release checks</span>');
-  abs('zone-label', 1356, 740, f.type === 'ground' ? '4 Release<span>GitHub + Modrinth trucks</span>' : '4 To Floor 1<span>shipper takes the elevator</span>');
+  abs('zone-label', 1356, 740, f.type === 'ground' ? '4 Release<span>conveyor to the trucks</span>' : '4 To Floor 1<span>conveyor + elevator</span>');
 
   const badge = f.type === 'dungeon' ? 'BETA DUNGEON · testers only' : 'RELEASED · ' + f.name.toUpperCase();
   abs('title', 600, 22, `<h1>USELEESS MOD<br>WORKSHOP</h1>
@@ -354,17 +358,24 @@ function buildFloor(f) {
       <span><i style="background:#F2B544"></i>beta: both trucks</span><span><i style="background:#2E9E5B"></i>release: both trucks</span>`);
     const truck = (y, label, cab) => abs('truck', 1370, y, `<div class="box-part">${label}</div><div class="cab" style="background:${cab}"></div>
       <div class="wheel" style="left:18px"></div><div class="wheel" style="left:140px"></div>`);
-    F.trucks = { gh: truck(290, 'GitHub', '#7FB7E8'), mr: truck(470, 'Modrinth', '#2E9E5B'), count: 0, leaving: null, timer: 0 };
+    F.trucks = { gh: truck(270, 'GitHub', '#7FB7E8'), mr: truck(490, 'Modrinth', '#2E9E5B'), count: 0, leaving: null, timer: 0 };
+    // the conveyor: from the judge's bench (and down from the elevator) to the loader at the trucks
+    abs('belt h', 1296, 446);
+    abs('belt v down', 1302, 262);
     F.van = abs('van hidden', -440, 560, '<div class="box-part">MAIL</div><div class="cab"></div><div class="wheel" style="left:16px"></div><div class="wheel" style="left:124px"></div>');
   } else {
     abs('upstairs-bay', 1340, 266);
-    abs('upstairs-sign', 1362, 296, `Shipping happens on Floor 1. The shipper takes approved boxes ${f.type === 'dungeon' ? 'up' : 'down'} in the elevator.`);
+    abs('upstairs-sign', 1362, 296, `Shipping happens on Floor 1. Approved crates ride the conveyor into the elevator, ${f.type === 'dungeon' ? 'up' : 'down'} to the loader at the trucks.`);
+    abs('belt h short', 1296, 446);
+    abs('belt v up', 1302, 262);
   }
 
-  F.fetcher = makeChar(room, { head: '#7FB7E8', cap: '#E56B5D', torso: '#5E95C8', label: 'FETCHER', x: FETCH_HOME[0], y: FETCH_HOME[1] });
-  F.home = f.type === 'ground' ? [1374, 636] : [1380, 500];
-  F.staging = []; // approved crates waiting for their upload (Floor 1 loading bay)
-  F.shipper = makeChar(room, { head: '#F29A5E', torso: '#F2B544', label: f.type === 'ground' ? 'SHIPPER' : 'SHIPPER · ' + (f.type === 'dungeon' ? f.name : 'F' + f.id.slice(1)), x: F.home[0], y: F.home[1] });
+  // the runner does every carry on the floor (board -> builder -> tester -> judge, and back when something fails)
+  F.runner = makeChar(room, { head: '#7FB7E8', cap: '#E56B5D', torso: '#5E95C8', label: 'RUNNER', cls: 'runner', x: RUNNER_HOME[0], y: RUNNER_HOME[1] });
+  F.staging = []; // approved crates waiting on the belt for their upload (Floor 1)
+  if (f.type === 'ground') { // the loader puts crates from the conveyor onto the trucks
+    F.loader = makeChar(room, { head: '#F29A5E', torso: '#F2B544', label: 'LOADER', x: LOADER_HOME[0], y: LOADER_HOME[1] });
+  }
   return F;
 }
 
@@ -598,12 +609,11 @@ function restoreFlight(flight) {
   const job = M.job = { version: flight.version, kind: flight.kind, packed: null, progress: flight.counts,
     testsOk: flight.stage !== 'testing', startN: status.last_event || 0 };
   const crate = crateFor(M, flight, wanted.size);
-  if (flight.stage === 'shipping') { // approved: waiting in the Floor 1 loading bay for its upload
+  if (flight.stage === 'shipping') { // approved: waiting on the Floor 1 belt for its upload
     const f1 = floors.f1;
-    const spot = [1440 + 48 * (f1.staging.length % 3), 650];
     f1.room.appendChild(crate);
-    at(crate, ...spot);
     f1.staging.push(crate);
+    at(crate, ...beltSpot(f1.staging.length - 1));
     job.packed = { crate, station: null, items };
     job.staged = crate;
   } else {
@@ -834,7 +844,7 @@ async function relocate(M, found, item) {
 function onStatus(M, event) {
   const F = M.F;
   if (event.status === 'in-progress') {
-    queue('fetch:' + F.id).push(async () => {
+    queue('runner:' + F.id).push(async () => {
       let found = await waitFor(() => findEntry(M, event.item), 90000);
       if (!found || found.where === 'desk') return;
       if (found.where === 'ready') {
@@ -849,25 +859,27 @@ function onStatus(M, event) {
         found = findEntry(M, event.item);
         if (!found || found.where !== 'board') return;
       }
-      const f = F.fetcher;
-      const [bx, by] = pos(found.entry.el);
-      const stand = [clamp(bx - 14, AISLE, 540), 286];
-      await walk(f, [[FETCH_HOME[0], CORRIDOR], [AISLE, CORRIDOR], [AISLE, 286], stand]);
-      const entry = M.board.splice(M.board.indexOf(found.entry), 1)[0];
-      restack(M);
-      entry.el.remove();
-      const item = { ...entry.item, status: 'in-progress' };
-      const box = itemThing(F.room, item, item.lane === 'auto' ? ' auto' : '');
-      setTip(box, itemTip(M, item, 'desk'));
-      at(box, bx, by);
-      await move(box, stand[0] + 14, stand[1] + 36, 350);
-      hold(f, box);
-      const front = [M.x + 90, M.y + 90];
-      await walk(f, [[stand[0], 286], [AISLE, 286], [AISLE, CORRIDOR], [front[0], CORRIDOR], front]);
-      await move(box, ...deskXY(M, M.desk.length), 350, 30);
-      M.desk.push({ item, el: box, M });
-      restack(M);
-      await walk(f, [[front[0], CORRIDOR], [FETCH_HOME[0], CORRIDOR], FETCH_HOME]);
+      await runnerDo(F, async (f) => { // the runner takes it off the board to the builder's desk
+        const now = findEntry(M, event.item);
+        if (!now || now.where !== 'board') return;
+        const [bx, by] = pos(now.entry.el);
+        const stand = [clamp(bx - 14, AISLE, 540), 286];
+        await walk(f, [[pos(f)[0], CORRIDOR], [AISLE, CORRIDOR], [AISLE, 286], stand]);
+        const entry = M.board.splice(M.board.indexOf(now.entry), 1)[0];
+        restack(M);
+        entry.el.remove();
+        const item = { ...entry.item, status: 'in-progress' };
+        const box = itemThing(F.room, item, item.lane === 'auto' ? ' auto' : '');
+        setTip(box, itemTip(M, item, 'desk'));
+        at(box, bx, by);
+        await move(box, stand[0] + 14, stand[1] + 36, 300);
+        hold(f, box);
+        const front = deskFront(M);
+        await walk(f, [[stand[0], 286], [AISLE, 286], [AISLE, CORRIDOR], [front[0], CORRIDOR], front]);
+        await move(box, ...deskXY(M, M.desk.length), 350, 30);
+        M.desk.push({ item, el: box, M });
+        restack(M);
+      });
     });
   } else if (event.status === 'done') {
     queue('desk:' + M.mod.key).push(async () => {
@@ -907,9 +919,10 @@ function onStatus(M, event) {
   }
 }
 
-// ---------- a push: pack -> AI tester (live count) -> judge -> loading bay -> trucks ----------
+// ---------- a push: pack -> runner -> AI tester (live count) -> runner -> judge -> conveyor -> loader -> trucks ----------
 // The push command reports: testing (crate goes to a tester), test_progress (live count), tests_done,
 // judged, push (uploaded). A push without the earlier steps (older events) plays the whole trip at once.
+// Each push is a chain of steps (job.step); the carrying is done by the floor's runner, one carry at a time.
 
 function crateFor(M, event, count) {
   const crate = makeThing(M.F.room, 'crate', `${M.mod.name} v${event.version} · ${count} ${count === 1 ? 'change' : 'changes'} · ${KIND_TEXT[event.kind] || event.kind}`);
@@ -918,15 +931,62 @@ function crateFor(M, event, count) {
   return crate;
 }
 
-async function toDesk(M) { // builder walks back and sits down
-  const out = [M.x + 176, M.y - 10];
-  await walk(M.builder, [[880, CORRIDOR], [out[0], CORRIDOR], out, [M.x + 86, M.y - 4]]);
-  M.builder.classList.add('seated');
-  restack(M);
+// the next step of a push, after the ones before it (counts as "something moving" until it is done)
+function jobStep(job, fn) {
+  busy++;
+  job.step = (job.step || Promise.resolve()).then(fn).catch((err) => {
+    console.error(err);
+    if (!brokenAt) brokenAt = Date.now(); // the watchdog reloads the live state
+  }).finally(() => {
+    busy--;
+    if (!busy) settle();
+  });
 }
 
-async function packAndTest(M, event) { // the finished boxes become one crate, carried to a free tester
-  const F = M.F;
+// the floor's runner carries one thing at a time, in order; back home when nothing else is waiting
+function runnerDo(F, fn) {
+  F.runnerWaiting = (F.runnerWaiting || 0) + 1;
+  const run = (F.runnerTurn || Promise.resolve()).then(async () => {
+    try {
+      await fn(F.runner);
+    } finally {
+      if (--F.runnerWaiting === 0) await walk(F.runner, [[pos(F.runner)[0], CORRIDOR], [RUNNER_HOME[0], CORRIDOR], RUNNER_HOME]);
+    }
+  });
+  F.runnerTurn = run.catch(() => {});
+  return run;
+}
+// the loader (Floor 1) likewise
+function loaderDo(fn) {
+  const f1 = floors.f1;
+  f1.loaderWaiting = (f1.loaderWaiting || 0) + 1;
+  const run = (f1.loaderTurn || Promise.resolve()).then(async () => {
+    try {
+      await fn(f1.loader);
+    } finally {
+      if (--f1.loaderWaiting === 0) await walk(f1.loader, [LOADER_HOME]);
+    }
+  });
+  f1.loaderTurn = run.catch(() => {});
+  return run;
+}
+
+const deskFront = (M) => [M.x + 90, M.y + 90];
+const stationStand = (station) => [880, station.y + 60];
+
+// the runner walks along the corridor to a spot (no walking through desks)
+async function runTo(r, spot) {
+  const [x] = pos(r);
+  await walk(r, [[x, CORRIDOR], [spot[0], CORRIDOR], spot]);
+}
+async function pickUp(ch, thing) {
+  const [x, y] = pos(ch);
+  const crate = thing.classList.contains('crate');
+  await move(thing, x + (crate ? 6 : 14), y + (crate ? 30 : 36), 300, 20);
+  hold(ch, thing);
+}
+
+async function packCrate(M, job, event) { // the builder packs the finished requests into one crate on the desk
   const wanted = new Set(event.items || []);
   let boxes = [...M.ready, ...M.desk].filter((e) => wanted.has(e.item.id));
   if (!wanted.size) boxes = [...M.ready];
@@ -939,21 +999,27 @@ async function packAndTest(M, event) { // the finished boxes become one crate, c
   const crate = crateFor(M, event, boxes.length || wanted.size);
   at(crate, M.x + 102, M.y + 12);
   restack(M);
-  refreshDesk(M, 'Done! Off to testing', 'done');
-  await sleep(600);
+  refreshDesk(M, 'Done! Runner, to testing', 'done');
+  job.crate = crate;
+  job.items = boxes.map((b) => b.item);
+}
+
+async function toTester(M, job) { // the runner takes the crate from the desk to a free AI tester
+  const F = M.F;
   const station = await waitFor(() => F.stations.find((s) => !s.busy));
   station.busy = true;
-  const out = [M.x + 176, M.y - 10];
-  await walk(M.builder, [[M.x + 96, M.y - 10]]);
-  hold(M.builder, crate);
-  await walk(M.builder, [out, [out[0], CORRIDOR], [880, CORRIDOR], [880, station.y + 60]]);
-  await move(crate, 984, station.y + 16, 400, 30);
+  await runnerDo(F, async (r) => {
+    await runTo(r, deskFront(M));
+    await pickUp(r, job.crate);
+    await runTo(r, stationStand(station));
+    await move(job.crate, 984, station.y + 16, 400, 30);
+  });
   station.cover.classList.add('hidden');
-  station.what.innerHTML = `${esc(M.mod.name)} <b>v${esc(event.version)}</b><br><span class="tally">testing…</span>`;
+  station.what.innerHTML = `${esc(M.mod.name)} <b>v${esc(job.version)}</b><br><span class="tally">testing…</span>`;
   station.playing.classList.remove('hidden');
   refreshDesk(M, 'In testing...', 'test');
-  toDesk(M);
-  return { crate, station, items: boxes.map((b) => b.item) };
+  job.packed = { crate: job.crate, station, items: job.items };
+  showTally(station, job.progress);
 }
 
 function showTally(station, p) {
@@ -974,27 +1040,42 @@ function freeStation(station) {
   station.busy = false;
 }
 
-function unpack(M, job, crate) { // a crate that failed comes back: its boxes go back on the desk to be fixed
+function unpack(M, job, crate) { // a crate that failed comes back: its requests go back on the desk to be fixed
   openJobs.delete(job);
   crate.remove();
   for (const item of job.packed.items) addBox(M, { ...item, status: 'in-progress' }, 'desk');
-  M.job = null;
+  if (M.job === job) M.job = null;
   busy--;
   restack(M);
   refreshDesk(M, 'Fixing what failed', 'fail');
 }
 
-function onTesting(M, event) {
-  // the same push again (restored from the live state, or a re-run after a crash): its crate is already here
-  if (M.job && openJobs.has(M.job) && M.job.version === event.version && !M.job.failed && !M.job.pushedAt) return;
+async function backToBuilder(M, job, crate) { // the runner (already holding it) takes it back to the designer
+  const r = M.F.runner;
+  await runTo(r, deskFront(M));
+  await move(crate, M.x + 102, M.y + 12, 300, 20);
+  unpack(M, job, crate);
+}
+
+function newJob(M, event, startN) {
   busy++; // held until the crate is shipped or comes back
   if (M.job && openJobs.has(M.job)) M.job.supersededAt = Date.now(); // a newer push of the mod: that one is over
   const job = M.job = { version: event.version, kind: event.kind, packed: null, progress: null, testsOk: false,
-    startN: event.n || 0 };
+    startN: startN || 0, step: null };
   openJobs.add(job);
-  queue('desk:' + M.mod.key).push(async () => {
-    job.packed = await packAndTest(M, event);
-    showTally(job.packed.station, job.progress);
+  return job;
+}
+
+function onTesting(M, event) {
+  // the same push again (restored from the live state, or a re-run after a crash): its crate is already here
+  if (M.job && openJobs.has(M.job) && M.job.version === event.version && !M.job.failed && !M.job.pushedAt) return;
+  const job = newJob(M, event, event.n);
+  jobStep(job, async () => {
+    await new Promise((done) => queue('desk:' + M.mod.key).push(async () => { // after the builder's own moves
+      await packCrate(M, job, event);
+      done();
+    }));
+    await toTester(M, job);
   });
 }
 
@@ -1010,7 +1091,7 @@ function onTestsDone(M, event) {
   if (!job || job.version !== event.version) return;
   job.testsOk = !!event.ok; // known right away: the judge's event can follow in the same check
   if (!event.ok) job.failed = true;
-  queue('desk:' + M.mod.key).push(async () => {
+  jobStep(job, async () => {
     const { station, crate } = job.packed;
     showTally(station, event);
     station.playing.classList.add('hidden');
@@ -1022,17 +1103,16 @@ function onTestsDone(M, event) {
     station.cover.className = 'cover fail';
     station.cover.innerHTML = `${(event.failed || 0).toLocaleString()} FAILED ✗<br>back to the builder`;
     await sleep(1800);
-    const out = [M.x + 176, M.y - 10];
-    await walk(M.builder, [out, [out[0], CORRIDOR], [880, CORRIDOR], [880, station.y + 60]]);
-    hold(M.builder, crate);
-    freeStation(station);
-    await toDesk(M);
-    unpack(M, job, crate);
+    await runnerDo(M.F, async (r) => {
+      await runTo(r, stationStand(station));
+      await pickUp(r, crate);
+      freeStation(station);
+      await backToBuilder(M, job, crate);
+    });
   });
 }
 
 async function judgeCrate(F, crate, score, ok) { // the judge scores each section, then stamps it
-  await move(crate, 1134, 330, 400, 30);
   for (const check of F.checks) {
     await sleep(450);
     const s = (score || {})[check.section];
@@ -1051,36 +1131,107 @@ async function judgeCrate(F, crate, score, ok) { // the judge scores each sectio
   F.stamp.classList.remove('on');
 }
 
+async function judgeStep(M, job, score, ok) {
+  const F = M.F;
+  const { station, crate } = job.packed;
+  F.judgeQueue = (F.judgeQueue || Promise.resolve()); // one crate on the bench at a time
+  let release;
+  const mine = new Promise((done) => { release = done; });
+  const before = F.judgeQueue;
+  F.judgeQueue = before.then(() => mine);
+  await before;
+  try {
+    await runnerDo(F, async (r) => {
+      await walk(r, [[pos(r)[0], CORRIDOR], [1060, CORRIDOR], [1060, station.y + 60]]);
+      await pickUp(r, crate);
+      freeStation(station);
+      await walk(r, [[1060, 420], [1150, 420]]);
+      await move(crate, ...BENCH, 400, 30);
+    });
+    await judgeCrate(F, crate, score, ok);
+    if (!ok) { // rejected: the runner takes it back to the designer
+      await runnerDo(F, async (r) => {
+        await walk(r, [[pos(r)[0], CORRIDOR], [1150, CORRIDOR], [1150, 420]]);
+        await pickUp(r, crate);
+        await backToBuilder(M, job, crate);
+      });
+      return;
+    }
+    await convey(F, crate); // approved: onto the conveyor
+  } finally {
+    release();
+  }
+  await ride(F, crate, job);
+}
+
 function onJudged(M, event) {
   const job = M.job;
   if (!job || job.version !== event.version || !job.testsOk) return; // failed tests already sent it back
   if (!event.ok) job.failed = true;
-  const F = M.F;
-  queue('ship:' + F.id).push(async () => {
-    await waitFor(() => job.packed);
-    const s = F.shipper;
-    const { station, crate } = job.packed;
-    await walk(s, [[990, station.y + 60]]);
-    hold(s, crate);
-    freeStation(station);
-    await walk(s, [[1150, 400]]);
-    await judgeCrate(F, crate, event.score, event.ok);
-    hold(s, crate);
-    if (!event.ok) { // rejected: back to the builder's desk
-      await walk(s, [[M.x + 90, CORRIDOR], [M.x + 90, M.y + 90]]);
-      unpack(M, job, crate);
-      await walk(s, [[M.x + 90, CORRIDOR], F.home]);
-      return;
-    }
-    const f1 = floors.f1;
-    if (F !== f1) await elevatorRide(s, F, f1);
-    const spot = [1440 + 48 * (f1.staging.length % 3), 650];
-    await walk(s, [[spot[0] - 20, spot[1] - 40]]);
-    await move(crate, ...spot, 400, 20);
-    f1.staging.push(crate);
-    job.staged = crate;
-    if (F !== f1) await elevatorRide(s, f1, F);
-    await walk(s, [F.home]);
+  jobStep(job, () => judgeStep(M, job, event.score, event.ok));
+}
+
+// ---------- conveyor: judge's bench -> (Dungeon: lift belt -> elevator -> Floor 1) -> belt -> loader ----------
+const BENCH = [1134, 330];
+const LIFT_X = 1291; // the short upright belt beside the elevator (crate's left edge)
+const BELT_Y = 412; // a crate's top while it rides the Floor 1 belt
+const beltSpot = (k) => [1536 - 50 * k, BELT_Y];
+
+async function convey(F, crate) { // off the bench onto the belt's start
+  await move(crate, LIFT_X, BELT_Y, 500, 20);
+}
+
+async function ride(F, crate, job) {
+  const f1 = floors.f1;
+  crate.riding = true;
+  if (F !== f1) { // up the lift belt into the elevator; it comes out on Floor 1 onto the belt there
+    await move(crate, LIFT_X, 262, 1400);
+    await move(crate, 1252, 196, 400);
+    await openElevator(F, 500);
+    crate.classList.add('hidden');
+    await sleep(1400);
+    f1.room.appendChild(crate);
+    at(crate, 1252, 196);
+    crate.classList.remove('hidden');
+    await openElevator(f1, 500);
+    await move(crate, LIFT_X, 262, 400);
+    await move(crate, LIFT_X, BELT_Y, 1400);
+  }
+  f1.staging.push(crate);
+  const [tx] = beltSpot(f1.staging.indexOf(crate));
+  await move(crate, tx, BELT_Y, Math.max(300, (tx - LIFT_X) * 8));
+  crate.riding = false;
+  restackBelt();
+  job.staged = crate;
+}
+
+function restackBelt() { // waiting crates move up to the belt's end as the loader takes the first ones
+  const f1 = floors.f1;
+  f1.staging.forEach((c, k) => {
+    if (!c.riding && pos(c)[0] !== beltSpot(k)[0]) move(c, ...beltSpot(k), 500);
+  });
+}
+
+function finishJob(M, job) {
+  openJobs.delete(job);
+  if (M.job === job) M.job = null;
+  busy--;
+  if (model[M.mod.key] === M) refreshDesk(M);
+}
+
+function shipStep(M, job, kind) { // uploaded: the loader takes the crate off the belt onto the truck(s)
+  jobStep(job, async () => {
+    await waitFor(() => job.staged);
+    await loaderDo(async (l) => {
+      const f1 = floors.f1;
+      const crate = job.staged;
+      await walk(l, [[pos(crate)[0] + 2, BELT_Y + 56]]);
+      await pickUp(l, crate);
+      f1.staging = f1.staging.filter((c) => c !== crate);
+      restackBelt();
+      await deliver(l, f1, crate, kind);
+    });
+    finishJob(M, job);
   });
 }
 
@@ -1089,56 +1240,33 @@ function onPush(M, event) {
   M.mod.version = event.version;
   if (job && job.version === event.version) {
     job.pushedAt = Date.now();
-    queue('ship:f1').push(async () => { // uploaded: the waiting crate goes onto the truck(s)
-      await waitFor(() => job.staged);
-      const f1 = floors.f1;
-      const s = f1.shipper;
-      const crate = job.staged;
-      const [cx, cy] = pos(crate);
-      await walk(s, [[cx - 20, cy - 40]]);
-      hold(s, crate);
-      f1.staging = f1.staging.filter((c) => c !== crate);
-      await deliver(s, f1, crate, event.kind);
-      await walk(s, [f1.home]);
-      openJobs.delete(job);
-      M.job = null;
-      busy--;
-      refreshDesk(M);
-    });
+    shipStep(M, job, event.kind);
     return;
   }
   // older push events: the whole trip at once, with the judge's scores
-  const F = M.F;
-  queue('desk:' + M.mod.key).push(async () => {
-    const { crate, station } = await packAndTest(M, event);
-    busy++;
+  const old = newJob(M, event, event.n);
+  old.pushedAt = Date.now();
+  old.testsOk = true;
+  jobStep(old, async () => {
+    await new Promise((done) => queue('desk:' + M.mod.key).push(async () => {
+      await packCrate(M, old, event);
+      done();
+    }));
+    await toTester(M, old);
     await sleep(4000);
+    const { station } = old.packed;
     station.playing.classList.add('hidden');
     station.cover.className = 'cover pass';
-    station.cover.innerHTML = 'PASSED ✓<br>shipper, come get it';
-    busy--;
-    queue('ship:' + F.id).push(async () => {
-      const s = F.shipper;
-      await walk(s, [[990, station.y + 60]]);
-      hold(s, crate);
-      freeStation(station);
-      await walk(s, [[1150, 400]]);
-      await judgeCrate(F, crate, event.judge, true);
-      hold(s, crate);
-      const f1 = floors.f1;
-      if (F !== f1) await elevatorRide(s, F, f1);
-      await deliver(s, f1, crate, event.kind);
-      if (F !== f1) await elevatorRide(s, f1, F);
-      await walk(s, [F.home]);
-      if (model[M.mod.key] === M) refreshDesk(M);
-    });
+    station.cover.innerHTML = 'PASSED ✓<br>runner, come get it';
+    await judgeStep(M, old, event.judge, true);
   });
+  shipStep(M, old, event.kind);
 }
 
 async function deliver(s, G, crate, kind) {
   const T = G.trucks;
   if (T.leaving) await T.leaving;
-  await walk(s, [[1300, 290]]);
+  await walk(s, [LOAD_SPOT]);
   const k = T.count++ % 4;
   T.gh.appendChild(crate);
   at(crate, 30 + 30 * k, -30);

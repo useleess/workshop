@@ -295,8 +295,21 @@ button { font: inherit; color: inherit; }
 .chip.planned.auto { background: #CDEFD9; }
 
 @keyframes pop { from { transform: scale(0.3); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+/* conveyor */
+.belt { z-index: 7; border: 3px solid var(--ink); border-radius: 9px; animation: belt-x 0.6s linear infinite; }
+.belt.h { width: 294px; height: 20px; background: repeating-linear-gradient(90deg, #3B4A5E 0 10px, #6F7782 10px 20px); }
+.belt.h.short { width: 44px; animation: none; }
+.belt.v { width: 24px; height: 204px; background: repeating-linear-gradient(0deg, #3B4A5E 0 10px, #6F7782 10px 20px); animation-name: belt-up; }
+.belt.v.down { animation-name: belt-down; }
+@keyframes belt-x { to { background-position: 20px 0; } }
+@keyframes belt-up { to { background-position: 0 -20px; } }
+@keyframes belt-down { to { background-position: 0 20px; } }
+/* the runner runs */
+.char.runner.walking .body { animation-duration: 0.22s; }
+.char.runner.walking .legs i { animation-duration: 0.1s; }
+
 @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
 @keyframes leg { from { transform: rotate(-18deg); } to { transform: rotate(18deg); } }
 @keyframes blink { 0%, 92%, 100% { transform: scaleY(1); } 96% { transform: scaleY(0.1); } }
 @keyframes zz { 0% { opacity: 0; transform: translate(0, 0); } 50% { opacity: 1; } 100% { opacity: 0; transform: translate(12px, -22px); } }
-@media (prefers-reduced-motion: reduce) { .char .body, .char .legs i, .zz { animation: none !important; } }
+@media (prefers-reduced-motion: reduce) { .char .body, .char .legs i, .zz, .belt { animation: none !important; } }

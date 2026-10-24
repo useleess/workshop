@@ -7,10 +7,11 @@ Open http://127.0.0.1:8123/?data=data-test&poll=3 and run:
     simulate.py decide <mod> <id> <auto|with-me|more-info|not-planned>   Useleess decides at the front desk
     simulate.py answer <mod> <id>             the player answered a more-info question: back to the front desk
     simulate.py leave <mod> <id>              a not-planned item stops being exported (~3 days later; no event; the page no longer shows it anyway)
-    simulate.py start <mod> <id>              item in progress (the fetcher takes it to the desk)
+    simulate.py start <mod> <id>              item in progress (the runner takes it to the builder's desk)
     simulate.py done <mod> <id>               item done (it moves to the READY pile)
     simulate.py push <mod> <testers|beta|release>   pack the READY pile into a crate and ship it
-    simulate.py staged <mod> <kind> [total] [failed]   push with live tester count (failed > 0 = crate returns)
+    simulate.py staged <mod> <kind> [total] [failed] [judge-fail]   push with live tester count (failed > 0 = tests
+                                              fail; judge-fail = tests pass, the judge rejects: either way the crate returns)
     simulate.py begin <mod> <kind> [total] [passed]   a push left MID-TEST (reload the page: crate at the tester)
     simulate.py progress <mod> <passed> [failed]       next live count for that push
     simulate.py finish <mod> [stop-at-judge|fail]      tests done, judged, uploaded (or sent back)
@@ -139,7 +140,7 @@ def push(key, kind):
                   "judge": {"Tests": [3, 3], "Safety": [4, 4], "Release notes": [3, 3]}})
 
 
-def staged(key, kind, total=300, failed=0):
+def staged(key, kind, total=300, failed=0, judge_fail=False):
     """A push the way the real push command reports it: crate to a tester, live count, judge, upload."""
     status = load("status.json")
     mod = mod_of(status, key)
@@ -147,7 +148,7 @@ def staged(key, kind, total=300, failed=0):
     x, y, z = (mod["version"].split("-")[0].split(".") + ["0", "0"])[:3]
     version = f"{x}.{y}.{int(z) + (0 if '-' in mod['version'] else 1)}"
     emit(status, {"type": "testing", "mod": key, "version": version, "kind": kind, "items": shipped})
-    time.sleep(20)  # builder packs and walks to the tester
+    time.sleep(20)  # builder packs, the runner carries it to a tester
     passed = 0
     for step in range(1, 9):
         done = total * step // 8
@@ -156,10 +157,13 @@ def staged(key, kind, total=300, failed=0):
                                    "passed": done - bad, "failed": bad, "skipped": 0})
         passed = done - bad
         time.sleep(3)
-    ok = failed == 0
-    score = {"Tests": [4 if ok else 3, 4], "Safety": [4, 4], "Release notes": [3, 3]}
-    emit(load("status.json"), {"type": "tests_done", "mod": key, "version": version, "ok": ok, "total": total,
+    tests_ok = failed == 0
+    ok = tests_ok and not judge_fail
+    score = {"Tests": [4 if tests_ok else 3, 4], "Safety": [4 if ok else 3, 4], "Release notes": [3, 3]}
+    emit(load("status.json"), {"type": "tests_done", "mod": key, "version": version, "ok": tests_ok, "total": total,
                                "passed": passed, "failed": failed, "skipped": 0})
+    if tests_ok:
+        time.sleep(6)  # the runner takes the crate to the judge
     emit(load("status.json"), {"type": "judged", "mod": key, "version": version, "ok": ok, "score": score})
     if not ok:  # like release.py: the crate's requests need work again
         for item_id in shipped:
@@ -285,7 +289,8 @@ def main(args):
     elif cmd == "push":
         push(args[1], args[2])
     elif cmd == "staged":
-        staged(args[1], args[2], int(args[3]) if len(args) > 3 else 300, int(args[4]) if len(args) > 4 else 0)
+        staged(args[1], args[2], int(args[3]) if len(args) > 3 else 300, int(args[4]) if len(args) > 4 else 0,
+               len(args) > 5 and args[5] == "judge-fail")
     elif cmd == "begin":
         begin(args[1], args[2], *[int(a) for a in args[3:5]])
     elif cmd == "progress":
