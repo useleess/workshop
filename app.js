@@ -4,7 +4,7 @@
 // talks to Discord or any AI. The live data comes from the one-commit "data" branch, published into data/ next
 // to this page on every update; ?data=<folder> reads another data folder, ?poll=<seconds> checks faster.
 
-const SITE_VERSION = '19'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
+const SITE_VERSION = '20'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
 const params = new URLSearchParams(location.search);
 const DATA = params.get('data') || 'data';
 const POLL_MS = Math.max(2, Number(params.get('poll')) || 15) * 1000;
@@ -436,6 +436,12 @@ function setTip(thing, text) {
   tip.textContent = text;
 }
 const itemColor = (item) => (item.kind === 'bug' ? '#E56B5D' : '#F2B544');
+// a request looks the same everywhere (desk, tray, in hand, board, builder, ready pile): the board's block + its number
+function itemThing(parent, item, extra = '') {
+  const thing = makeThing(parent, 'block' + extra + (String(item.id).length > 2 ? ' long' : ''), '', itemColor(item));
+  el('span', 'num', thing).textContent = '#' + item.id;
+  return thing;
+}
 
 function restack(M) {
   // the most-voted request on the board gets a star, so players and Useleess see what matters most
@@ -529,13 +535,9 @@ function restackDesk() {
 // one request somewhere in the office (where: see WHERE_OF); its look follows the place
 function addEntry(M, item, where, pending) {
   let thing;
-  if (where === 'board') thing = makeThing(M.F.room, 'block', '', itemColor(item));
-  else if (where === 'desk' || where === 'ready') thing = makeThing(M.F.room, 'box' + (item.lane === 'auto' ? ' auto' : ''), '', itemColor(item));
-  else { // front desk / more info: on Floor 1; not planned: not shown (it has left)
-    thing = makeThing(floors.f1.room, 'ticket' + (where === 'out' ? ' gone-out' : ''), '', itemColor(item));
-    el('span', 'num', thing).textContent = '#' + item.id;
-    thing.style.borderLeftColor = HEADS[M.slot];
-  }
+  if (where === 'board') thing = itemThing(M.F.room, item);
+  else if (where === 'desk' || where === 'ready') thing = itemThing(M.F.room, item, item.lane === 'auto' ? ' auto' : '');
+  else thing = itemThing(floors.f1.room, item, where === 'out' ? ' gone-out' : ''); // front desk / more info: Floor 1; not planned: not shown
   if (pending) thing.classList.add('pending'); // its spot is kept while something flies there
   const entry = { item, el: thing, M, seq: ++seq };
   M[where].push(entry);
@@ -855,7 +857,8 @@ function onStatus(M, event) {
       restack(M);
       entry.el.remove();
       const item = { ...entry.item, status: 'in-progress' };
-      const box = makeThing(F.room, 'box' + (item.lane === 'auto' ? ' auto' : ''), itemTip(M, item, 'desk'), itemColor(item));
+      const box = itemThing(F.room, item, item.lane === 'auto' ? ' auto' : '');
+      setTip(box, itemTip(M, item, 'desk'));
       at(box, bx, by);
       await move(box, stand[0] + 14, stand[1] + 36, 350);
       hold(f, box);

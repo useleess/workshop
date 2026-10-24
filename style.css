@@ -31,7 +31,7 @@ button { font: inherit; color: inherit; }
 .live::before { content: ""; width: 10px; height: 10px; border-radius: 5px; background: var(--ok); }
 .live.bad { color: #FFB3A8; }
 .live.bad::before { background: var(--bug); }
-.tab:focus-visible, .floor-btn:focus-visible, .box:focus-visible, .crate:focus-visible { outline: 3px solid #7FB7E8; outline-offset: 2px; }
+.tab:focus-visible, .floor-btn:focus-visible, .crate:focus-visible { outline: 3px solid #7FB7E8; outline-offset: 2px; }
 
 /* ---------- stage (the office, scaled to fit) ---------- */
 .stage-wrap { position: relative; width: 100%; overflow: hidden; }
@@ -79,17 +79,24 @@ button { font: inherit; color: inherit; }
 .board .legend { position: absolute; left: 14px; right: 14px; bottom: 8px; display: flex; gap: 12px; align-items: center; font-size: 11px; font-weight: 800; }
 .board .legend i { display: inline-block; width: 10px; height: 10px; border: 2px solid var(--ink); margin-right: 4px; vertical-align: -1px; }
 .board .legend a { margin-left: auto; color: #FFFFFF; font-size: 13px; }
-.block { position: absolute; width: 26px; height: 26px; border: 3px solid var(--ink); border-radius: 4px; padding: 0; cursor: pointer; z-index: 31; }
-.block.star::before { content: "★"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 17px; line-height: 1; color: #FFFFFF;
+/* a request, everywhere it goes: block + number; star = most votes on the board, green dot = autopilot lane */
+.block { position: absolute; width: 26px; height: 26px; border: 3px solid var(--ink); border-radius: 4px; padding: 0; cursor: pointer; z-index: 31;
+  box-shadow: 0 2px 0 rgba(29,36,51,0.35); transition: transform 0.2s; }
+.block .num { display: block; font: 700 10px/20px Fredoka, sans-serif; letter-spacing: -0.3px; color: var(--ink); text-align: center; pointer-events: none; }
+.block.long .num { font-size: 8px; letter-spacing: -0.5px; }
+.block.star::before { content: "★"; position: absolute; right: -10px; top: -12px; font-size: 15px; line-height: 1; color: #FFE27A;
   -webkit-text-stroke: 1px var(--ink); }
+.block.auto::after { content: ""; position: absolute; right: -8px; bottom: -8px; width: 10px; height: 10px; background: #8FE3B0; border: 2px solid var(--ink); border-radius: 6px; }
+.block.gone-out { display: none; }
+.block:focus-visible { outline: 3px solid #7FB7E8; outline-offset: 2px; }
 .more { position: absolute; height: 26px; padding: 0 6px; border: 3px solid var(--ink); border-radius: 4px; background: #FFFFFF; color: var(--ink);
   font: 700 13px Fredoka, sans-serif; cursor: pointer; z-index: 31; }
 
 /* tooltips on anything you can hover */
 .tip { display: none; position: absolute; left: 32px; top: -8px; width: 240px; background: #FFFFFF; color: var(--ink); border: 3px solid var(--ink);
   border-radius: 8px; padding: 8px 10px; font: 600 13px Nunito, sans-serif; text-align: left; z-index: 80; box-shadow: 0 4px 0 var(--ink); pointer-events: none; }
-.block:hover .tip, .block:focus .tip, .more:hover .tip, .box:hover .tip, .box:focus .tip, .crate:hover .tip, .crate:focus .tip, .letter:hover .tip { display: block; }
-.box:hover, .crate:hover, .block:hover { z-index: 90; }
+.block:hover .tip, .block:focus .tip, .more:hover .tip, .crate:hover .tip, .crate:focus .tip, .letter:hover .tip { display: block; }
+.crate:hover, .block:hover { z-index: 90; }
 
 /* scoreboard */
 .score { left: 856px; top: 18px; width: 342px; height: 232px; background: var(--ink); border: 5px solid var(--wood); border-radius: 10px; padding: 10px 12px;
@@ -155,10 +162,7 @@ button { font: inherit; color: inherit; }
 .char .antenna { width: 4px; height: 10px; background: var(--ink); }
 .hidden { visibility: hidden; }
 
-/* boxes, crates, letters */
-.box { position: absolute; width: 28px; height: 24px; padding: 0; border: 3px solid var(--ink); border-radius: 3px; box-shadow: 0 3px 0 rgba(29,36,51,0.35);
-  cursor: pointer; z-index: 26; }
-.box::after { content: ""; position: absolute; left: 9px; top: 0; width: 4px; height: 18px; background: #F3EBDD; }
+/* crates, letters */
 .crate { position: absolute; width: 44px; height: 36px; padding: 0; border: 3px solid var(--ink); border-radius: 3px; cursor: pointer; z-index: 26;
   background: repeating-linear-gradient(0deg, #C98F4F 0 10px, #A47A4C 10px 12px); box-shadow: 0 3px 0 rgba(29,36,51,0.35); }
 .crate .label { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: #FFFFFF; border: 1px solid var(--ink); border-radius: 3px;
@@ -278,10 +282,6 @@ button { font: inherit; color: inherit; }
 .tray { width: 156px; height: 56px; background: #FFF1CC; border: 3px solid var(--ink); border-radius: 8px; padding: 2px 6px; z-index: 9; white-space: nowrap; }
 .tray b { font: 700 11px Fredoka, sans-serif; }
 .tray small { margin-left: 4px; font-size: 9px; font-weight: 800; color: var(--muted); }
-.ticket { position: absolute; width: 32px; height: 22px; padding: 0; border: 2px solid var(--ink); border-left: 6px solid var(--ink); border-radius: 3px;
-  cursor: pointer; z-index: 26; box-shadow: 0 2px 0 rgba(29,36,51,0.35); transition: transform 0.2s; }
-.ticket .num { font: 700 10px/18px Fredoka, sans-serif; color: var(--ink); }
-.ticket.gone-out { display: none; }
 .leaving { opacity: 0; transform: translateY(-14px) scale(0.6); transition: opacity 0.8s, transform 0.8s; }
 .ticket-more { height: 22px; font-size: 11px; z-index: 27; }
 .pending { visibility: hidden !important; }
@@ -290,10 +290,6 @@ button { font: inherit; color: inherit; }
 .verdict { position: absolute; z-index: 50; border: 3px solid var(--ink); border-radius: 7px; padding: 1px 8px; font: 700 14px Fredoka, sans-serif;
   white-space: nowrap; rotate: -6deg; box-shadow: 0 3px 0 var(--ink); animation: pop 0.3s ease-out; transition: opacity 0.35s; }
 .verdict.fade { opacity: 0; }
-.box.auto::before { content: ""; position: absolute; right: -8px; top: -8px; width: 10px; height: 10px; background: #8FE3B0; border: 2px solid var(--ink); border-radius: 6px; }
-.ticket:hover .tip, .ticket:focus .tip { display: block; }
-.ticket:hover, .ticket:focus-visible { z-index: 90; }
-.ticket:focus-visible { outline: 3px solid #7FB7E8; outline-offset: 2px; }
 .chip.more-info { background: #FFF1CC; }
 .chip.not-planned { background: #E3E8EE; color: var(--muted); }
 .chip.planned.auto { background: #CDEFD9; }
