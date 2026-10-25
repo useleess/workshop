@@ -95,7 +95,7 @@ button { font: inherit; color: inherit; }
 /* tooltips on anything you can hover */
 .tip { display: none; position: absolute; left: 32px; top: -8px; width: 240px; background: #FFFFFF; color: var(--ink); border: 3px solid var(--ink);
   border-radius: 8px; padding: 8px 10px; font: 600 13px Nunito, sans-serif; text-align: left; z-index: 80; box-shadow: 0 4px 0 var(--ink); pointer-events: none; }
-.block:hover .tip, .block:focus .tip, .more:hover .tip, .crate:hover .tip, .crate:focus .tip, .letter:hover .tip { display: block; }
+.block:hover .tip, .block:focus .tip, .more:hover .tip, .crate:hover .tip, .crate:focus .tip, .letter:hover .tip, .count:hover .tip { display: block; }
 .crate:hover, .block:hover { z-index: 90; }
 
 /* scoreboard */
@@ -135,7 +135,7 @@ button { font: inherit; color: inherit; }
 .screen.pass { background: var(--ok); color: #FFFFFF; }
 .screen.fail { background: #C2453A; color: #FFFFFF; }
 .ready-label { position: absolute; left: -48px; top: 112px; font-size: 10px; font-weight: 800; background: #FFFFFF; border: 2px solid var(--ink); border-radius: 4px; padding: 0 4px; }
-.count { position: absolute; font-size: 11px; font-weight: 800; background: #FFFFFF; border: 2px solid var(--ink); border-radius: 8px; padding: 0 5px; z-index: 14; }
+.count { position: absolute; font-size: 11px; font-weight: 800; background: #FFFFFF; border: 2px solid var(--ink); border-radius: 8px; padding: 0 5px; z-index: 40; pointer-events: auto; }
 .zz { position: absolute; font: 600 16px Fredoka, sans-serif; animation: zz 2.4s ease-out infinite; }
 .zz.d { animation-delay: 1.2s; font-size: 13px; }
 

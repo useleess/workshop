@@ -5,7 +5,7 @@
 // relay is not answering, the page reads the one-commit "data" branch (status.json, events.json) every ?poll=<seconds>.
 // ?relay=<url> picks another relay, ?relay=off turns it off; ?data=<folder> reads another data folder.
 
-const SITE_VERSION = '31'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
+const SITE_VERSION = '32'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
 const params = new URLSearchParams(location.search);
 // live: read the data branch from GitHub's raw file server (unique ?t= is always fresh; Pages copies froze when published too often)
 const LIVE_DATA = 'https://raw.githubusercontent.com/useleess/workshop/data';
@@ -423,6 +423,10 @@ function buildMod(F, mod, slot, row) {
 function laneXY(M, lane, k) { return [LANE_X[lane] + 32 * Math.min(k, LANE_MAX - 1), 67 + 32 * M.row]; }
 function deskXY(M, k) { return [M.x + 110, M.y + 24 - 22 * Math.min(k, 3)]; }
 function readyXY(M, k) { return [M.x - 44, M.y + 86 - 24 * Math.min(k, 3)]; }
+// the index of the first request a pile shows: a pile shows only its newest 4, so the older ones are hidden
+const pileFirst = (pile) => Math.max(0, pile.length - 4);
+// the "+N" counter sits just right of a pile's top box (a 26 px box + 4 px gap, centred on it)
+const countXY = ([x, y]) => [x + 30, y + 4];
 // the front desk's inbox (2 rows) and the MORE INFO tray by the door, both on Floor 1
 const TRAY = {
   front: { max: FRONT_MAX, xy: (k) => [44 + 36 * (k % FRONT_ROW), 318 + 25 * Math.floor(k / FRONT_ROW)] },
@@ -483,22 +487,29 @@ function restack(M) {
     }
     M.empty[lane].classList.toggle('hidden', list.length > 0);
   }
-  M.desk.forEach((entry, k) => {
-    entry.el.classList.toggle('hidden', k > 3);
-    at(entry.el, ...deskXY(M, k));
-    entry.el.style.setProperty('--z', 31 + k); // higher boxes paint above the ones below, so every green dot shows
+  // a pile shows its newest 4 (the last ones pushed) on its 4 spots, newest on top; the older ones stay hidden under the "+N"
+  M.desk.forEach((entry, i) => {
+    const k = i - pileFirst(M.desk);
+    entry.el.classList.toggle('hidden', k < 0);
+    at(entry.el, ...deskXY(M, Math.max(k, 0)));
+    entry.el.style.setProperty('--z', 31 + Math.max(k, 0)); // higher boxes paint above the ones below, so every green dot shows
     setTip(entry.el, itemTip(M, entry.item, 'desk'));
   });
-  M.ready.forEach((entry, k) => {
-    entry.el.classList.toggle('hidden', k > 3);
-    at(entry.el, ...readyXY(M, k));
-    entry.el.style.setProperty('--z', 31 + k);
+  M.ready.forEach((entry, i) => {
+    const k = i - pileFirst(M.ready);
+    entry.el.classList.toggle('hidden', k < 0);
+    at(entry.el, ...readyXY(M, Math.max(k, 0)));
+    entry.el.style.setProperty('--z', 31 + Math.max(k, 0));
     setTip(entry.el, itemTip(M, entry.item, 'ready'));
   });
   M.deskCount.classList.toggle('hidden', M.desk.length <= 4);
   M.deskCount.textContent = '+' + (M.desk.length - 4);
+  setTip(M.deskCount, `${M.desk.length - 4} older requests in this pile`);
+  at(M.deskCount, ...countXY(deskXY(M, 3))); // right next to the top box
   M.readyCount.classList.toggle('hidden', M.ready.length <= 4);
   M.readyCount.textContent = '+' + (M.ready.length - 4);
+  setTip(M.readyCount, `${M.ready.length - 4} older requests in this pile`);
+  at(M.readyCount, ...countXY(readyXY(M, 3)));
   M.readyLabel.classList.toggle('hidden', !M.ready.length);
   refreshDesk(M);
   restackDesk();
