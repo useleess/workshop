@@ -301,17 +301,20 @@ button { font: inherit; color: inherit; }
 .belt.v { width: 24px; height: 204px; background: repeating-linear-gradient(0deg, #3B4A5E 0 10px, #6F7782 10px 20px); animation-name: belt-up; }
 .belt.v.down { animation-name: belt-down; }
 /* the down belt turns into the long belt: one belt, the corner piece is a quarter ring around the bend's inner point
-   (its top-right corner, r 8..32); its stripes fan around the bend and turn with the belt (no seams, outline only outside;
-   both straight belts reach 2px into it so no background shows at the joints when the office is scaled) */
+   (its top-right corner, r 13.465..37.465: band middle r 80/pi = 25.465, so the quarter turn is exactly 40px = 2 stripes
+   of 20px = 45deg each); its stripes fan around the bend and turn with the belt at the straight belts' speed. The
+   straight belts tile exactly every 20px and the offsets (h: 4.93px, corner: 16.954deg) put the stripe edges straight
+   across both joints (outline only outside; both straight belts reach ~2px into it so no background shows when scaled) */
 @property --bend { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
-.belt.v.down.turn { height: 178px; border-bottom: 0; border-radius: 9px 9px 0 0; }
-.belt.h.turn { width: 258px; border-left: 0; border-radius: 0 9px 9px 0; }
-.belt.corner { width: 32px; height: 32px; border: 0; border-radius: 0; animation-name: belt-bend;
-  background: radial-gradient(circle at 100% 0, var(--ink) 11px, transparent 11px 29px, var(--ink) 29px),
-    repeating-conic-gradient(from var(--bend) at 100% 0, #3B4A5E 0 30deg, #6F7782 30deg 60deg);
-  -webkit-mask: radial-gradient(circle at 100% 0, transparent 8px, #000 8px 32px, transparent 32px);
-  mask: radial-gradient(circle at 100% 0, transparent 8px, #000 8px 32px, transparent 32px); }
-@keyframes belt-bend { to { --bend: -60deg; } }
+.belt.v.down.turn { height: 173px; border-bottom: 0; border-radius: 9px 9px 0 0; background-size: 100% 20px; }
+.belt.h.turn { width: 253px; border-left: 0; border-radius: 0 9px 9px 0; background-size: 20px 100%; background-position: 4.93px 0; animation-name: belt-x-turn; }
+.belt.corner { width: 37.465px; height: 37.465px; border: 0; border-radius: 0; animation-name: belt-bend;
+  background: radial-gradient(circle at 100% 0, var(--ink) 16.465px, transparent 16.465px 34.465px, var(--ink) 34.465px),
+    repeating-conic-gradient(from calc(16.954deg + var(--bend)) at 100% 0, #3B4A5E 0 22.5deg, #6F7782 22.5deg 45deg);
+  -webkit-mask: radial-gradient(circle at 100% 0, transparent 13.465px, #000 13.465px 37.465px, transparent 37.465px);
+  mask: radial-gradient(circle at 100% 0, transparent 13.465px, #000 13.465px 37.465px, transparent 37.465px); }
+@keyframes belt-bend { to { --bend: -45deg; } }
+@keyframes belt-x-turn { from { background-position: 4.93px 0; } to { background-position: 24.93px 0; } }
 @keyframes belt-x { to { background-position: 20px 0; } }
 @keyframes belt-up { to { background-position: 0 -20px; } }
 @keyframes belt-down { to { background-position: 0 20px; } }
