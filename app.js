@@ -5,7 +5,7 @@
 // relay is not answering, the page reads the one-commit "data" branch (status.json, events.json) every ?poll=<seconds>.
 // ?relay=<url> picks another relay, ?relay=off turns it off; ?data=<folder> reads another data folder.
 
-const SITE_VERSION = '33'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
+const SITE_VERSION = '34'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
 const params = new URLSearchParams(location.search);
 // live: read the data branch from GitHub's raw file server (unique ?t= is always fresh; Pages copies froze when published too often)
 const LIVE_DATA = 'https://raw.githubusercontent.com/useleess/workshop/data';
@@ -428,6 +428,7 @@ function readyXY(M, k) { return [M.x - 44, M.y + 86 - 24 * Math.min(k, 3)]; }
 const pileFirst = (pile) => Math.max(0, pile.length - 4);
 // the "+N" counter sits just right of a pile's top box (a 26 px box + 4 px gap, centred on it)
 const countXY = ([x, y]) => [x + 30, y + 4];
+const countAboveXY = ([x, y]) => [x + 1, y - 20]; // centred on top of the box
 // the front desk's inbox rows (today's 2 rows as they always were, then 2 more stacked upward above them) and the MORE INFO
 // tray by the door, both on Floor 1; the front desk's "+N" tile sits beside its bottom row, the tray's takes the last spot
 const FRONT_ROW_Y = [318, 343, 293, 268];
@@ -512,7 +513,7 @@ function restack(M) {
   M.readyCount.classList.toggle('hidden', M.ready.length <= 4);
   M.readyCount.textContent = '+' + (M.ready.length - 4);
   setTip(M.readyCount, `${M.ready.length - 4} older requests in this pile`);
-  at(M.readyCount, ...countXY(readyXY(M, 3)));
+  at(M.readyCount, ...countAboveXY(readyXY(M, 3)));
   M.readyLabel.classList.toggle('hidden', !M.ready.length);
   refreshDesk(M);
   restackDesk();
