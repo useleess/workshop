@@ -12,7 +12,14 @@ C  scenarios scripted stories (requests, every desk decision, pushes that pass /
 D  invariants sampled every 100 ms during every scenario: D1 nothing floats (every visible block/crate/letter is held,
              moving, or resting on a declared surface = an element with data-surface); D2 nothing moves before the event
              that causes it was written, and every event shows within its time budget; D3 the office settles and then
-             equals status.json
+             equals status.json; D4 whatever is carried (inside a character) or moving (a running animation) is
+             visible - not class hidden, opacity 0, display none or zero size (a carrier that is itself hidden, e.g.
+             riding the elevator, excuses what it holds). Scenario "overflow-carry" fills the front desk and a builder's
+             desk past what they draw and then decides / finishes the hidden ones; D5 hand-offs: (a) one request / push
+             crate is never visible in two elements at once, (b) nothing is taken from a `pending` placeholder (the invisible
+             spot kept for a thing that is still on its way: removed, put in a hand or sent flying) - scenario
+             "handoff-order" (relay mode) decides + starts a Dungeon request 2 s apart and runs a push whose events
+             arrive close together
 E  looks     fixed settled scenes (both floors, dashboard, phone, pushes in flight) rendered for this copy and for the
              baseline and pixel-diffed. Without --request any difference fails; with --request an AI reviewer must
              explain every changed region from the request text.

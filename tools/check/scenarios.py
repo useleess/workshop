@@ -125,6 +125,15 @@ class Ctx:
             extra = f'&relay={self.relay.url}'
         await self.b.goto(f'{self.origin}/index.html?data=data-test/{self.name}&poll={POLL_S}{extra}', 1400, 900)
         self.opened = True
+        end = time.time() + 30
+        while time.time() < end:  # the office is built once it shows every item the data had when we opened
+            st = await self.state()
+            if st['snap'] and set(self.initial) <= set(st['snap']['items']):
+                break
+            await asyncio.sleep(0.1)
+        else:
+            self.fail('C', 'the page never built its office from the data within 30 s of opening')
+            raise Abort()
         if self.relay:
             await self.expect_relay_start()
         if floor != 'f1':
@@ -485,12 +494,64 @@ async def sc_relay_gap(c):
         c.fail('C', f'relay mode: the page asked the data folder {len(bad)} time(s) (first: {bad[0][1]}); a gap must be filled from the relay /state')
 
 
+async def sc_overflow_carry(c):
+    """Requests that are not drawn (hidden behind a '+N' tile, or beyond the first 4 on a builder's desk) must still be visible
+    while somebody carries them or they move: decide / finish the hidden ones."""
+    await c.open()
+    ids = c.request(A, 7)  # the front desk shows 8 (7 + the '+N' tile): with the fixture's own requests this is well past it
+    await c.settle('front desk filled past its maximum (the newest requests are hidden behind +N)')
+    c.sim.decide(A, ids[-1], 'auto')  # the newest = a hidden one
+    await c.settle('decision on a HIDDEN overflow request (Floor 1 mod, clerk carries it to the board)')
+    dids = c.request(D, 1)
+    await c.settle('a Dungeon request arriving on the full desk')
+    c.sim.decide(D, dids[0], 'auto')  # also hidden
+    await c.settle('decision on a HIDDEN overflow request of a Dungeon mod (elevator trip)')
+    # a builder desk with more than 4 items in progress: the 5th and later are not drawn
+    c.sim.decide(A, ids[0], 'auto')
+    c.sim.decide(A, ids[1], 'auto')
+    await c.settle('two more requests on the board')
+    planned = [i['id'] for m in c.status()['mods'] if m['key'] == A for i in m['items'] if i['status'] == 'planned']
+    for i in planned:
+        c.sim.set_status(A, i, 'in-progress')
+    await c.settle(f'{len(planned)} board requests started (the builder desk is past its 4 shown)')
+    desk = [i['id'] for m in c.status()['mods'] if m['key'] == A for i in m['items'] if i['status'] == 'in-progress']
+    c.sim.set_status(A, desk[-1], 'done')  # the last one started is not drawn on the desk
+    await c.settle('a HIDDEN overflow builder-desk item done (to the READY pile)')
+    c.sim.set_status(A, desk[-2], 'done')
+    await c.settle('a second overflow item done')
+
+
+async def sc_handoff_order(c):
+    """Hand-offs in order, with events arriving one at a time through the relay: a request decided for a board on another floor
+    is started 2 s later (the runner must wait for the clerk to pin it), and a push whose events come close together."""
+    await c.open('b1')
+    ids = c.request(D, 1)
+    await c.settle('relay: a Dungeon request arriving')
+    c.sim.decide(D, ids[0], 'auto')
+    await asyncio.sleep(2)
+    c.sim.set_status(D, ids[0], 'in-progress')  # the clerk is still on her way to the Dungeon board
+    await c.settle('relay: decided, then started 2 s later (the clerk is still carrying it)')
+    c.sim.set_status(D, ids[0], 'done')
+    await c.settle('relay: done')
+    # a push with its events close together: the loader must wait for the crate to reach the conveyor
+    c.sim.begin(A, 'beta', 300, 0)
+    await asyncio.sleep(1)
+    c.sim.progress(A, 300, 0)
+    c.sim.finish(A, 'stop-at-judge')
+    await asyncio.sleep(1)
+    c.judged_ok(A)
+    await asyncio.sleep(1)
+    c.sim.finish(A)
+    await c.settle('relay: a push whose events came close together')
+
+
 # name -> (function, in --quick)
 SCENARIOS = {
     'requests': (sc_requests, False), 'desk': (sc_desk, False), 'dungeon-desk': (sc_dungeon_desk, False),
     'push-pass': (sc_push_pass, True), 'tests-fail': (sc_tests_fail, False), 'judge-fail': (sc_judge_fail, False),
     'dungeon-push': (sc_dungeon_push, False), 'mid-testing': (sc_mid_testing, False),
     'mid-judging': (sc_mid_judging, False), 'mid-shipping': (sc_mid_shipping, False), 'burst': (sc_burst, False),
+    'overflow-carry': (sc_overflow_carry, False), 'handoff-order': (sc_handoff_order, False),
     'relay-basic': (sc_relay_basic, False), 'relay-drop': (sc_relay_drop, False), 'relay-gap': (sc_relay_gap, False),
 }
 
@@ -549,6 +610,14 @@ def analyse(c, dump):
     rel = lambda t: f'+{t - t0:.1f}s'  # noqa: E731
     events = sorted(c.rec.values(), key=lambda r: r[0])
     snaps = [(s['t'] / 1000, s['s']) for s in dump['snaps']]
+    # the page is sampled from its first moment, but until it has read the data it has no office yet (an empty snapshot says
+    # nothing about where items are): judge only from the first snapshot that holds every item the data had when we opened
+    built = next((i for i, (_, s) in enumerate(snaps) if set(c.initial) <= set(s['items'])), None)
+    if built is None:
+        c.fail('D3', 'the office never showed all the items the data had when the page was opened')
+        snaps = []
+    else:
+        snaps = snaps[built:]
 
     c.stats = f"{dump['samples']} samples, {len(snaps)} state changes, {len(events)} events, {dump['itemSamples']} item sightings ({dump['restSamples']} not in a hand)"
     c.rest = dump.get('rest', {})
@@ -556,6 +625,22 @@ def analyse(c, dump):
     for v in sorted(dump['viol'], key=lambda v: v['first'])[:12]:
         c.fail('D1', f"floating {v['cls']} \"{v['what']}\" at stage ({v['x']}, {v['y']}) from {rel(v['first'] / 1000)} to {rel(v['last'] / 1000)} "
                      f"({v['count']} samples): held by nobody, not moving, resting on nothing (nearest surface -> " + v['near'] + ")")
+
+    # D4 whatever is carried or moving can be seen
+    for v in sorted(dump.get('hid', []), key=lambda v: v['first'])[:12]:
+        where = f" (carried by \"{v['carrier']}\")" if v['carrier'] else ''
+        c.fail('D4', f"invisible {v['kind']} {v['cls']} \"{v['what']}\"{where} from {rel(v['first'] / 1000)} to {rel(v['last'] / 1000)} "
+                     f"({v['count']} samples): it is {v['kind']} but cannot be seen: {v['why']}")
+
+    # D5a one item, one place
+    for v in sorted(dump.get('twice', []), key=lambda v: v['first'])[:12]:
+        if v['count'] >= 2:
+            c.fail('D5', f"{v['key']} was visible in {len(v['where'])} places at once from {rel(v['first'] / 1000)} to {rel(v['last'] / 1000)} "
+                         f"({v['count']} samples): " + '; '.join(v['where']))
+    # D5b nothing is taken from a spot that is still pending (the real thing has not been put down there yet)
+    for v in dump.get('taken', [])[:12]:
+        c.fail('D5', f"{rel(v['t'] / 1000)}: \"{v['what']}\" was taken ({v['how']}) while it was still a pending placeholder: "
+                     f"the step before it has not finished putting the real thing down")
 
     # D2a nothing runs ahead of the data
     item_events = defaultdict(list)
@@ -651,7 +736,7 @@ async def run_scenario(name, site, browser, origin, fixture, frames_dir):
     c = Ctx(name, site, browser, origin, fixture, frames_dir)
     browser.errors.clear()
     try:
-        if name.startswith('relay-'):
+        if name.startswith('relay-') or name == 'handoff-order':
             c.relay = relay_mock.RelayMock(c.data_dir)
             await c.relay.start()
         await fn(c)
