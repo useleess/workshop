@@ -80,7 +80,7 @@ button { font: inherit; color: inherit; }
 .board .legend i { display: inline-block; width: 10px; height: 10px; border: 2px solid var(--ink); margin-right: 4px; vertical-align: -1px; }
 .board .legend a { margin-left: auto; color: #FFFFFF; font-size: 13px; }
 /* a request, everywhere it goes: block + number; star = most votes on the board, green dot = autopilot lane */
-.block { position: absolute; width: 26px; height: 26px; border: 3px solid var(--ink); border-radius: 4px; padding: 0; cursor: pointer; z-index: 31;
+.block { position: absolute; width: 26px; height: 26px; border: 3px solid var(--ink); border-radius: 4px; padding: 0; cursor: pointer; z-index: var(--z, 31);
   box-shadow: 0 2px 0 rgba(29,36,51,0.35); transition: transform 0.2s; }
 .block .num { display: block; font: 700 10px/20px Fredoka, sans-serif; letter-spacing: -0.3px; color: var(--ink); text-align: center; pointer-events: none; }
 .block.long .num { font-size: 8px; letter-spacing: -0.5px; }

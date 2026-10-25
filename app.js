@@ -5,7 +5,7 @@
 // relay is not answering, the page reads the one-commit "data" branch (status.json, events.json) every ?poll=<seconds>.
 // ?relay=<url> picks another relay, ?relay=off turns it off; ?data=<folder> reads another data folder.
 
-const SITE_VERSION = '30'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
+const SITE_VERSION = '31'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
 const params = new URLSearchParams(location.search);
 // live: read the data branch from GitHub's raw file server (unique ?t= is always fresh; Pages copies froze when published too often)
 const LIVE_DATA = 'https://raw.githubusercontent.com/useleess/workshop/data';
@@ -486,11 +486,13 @@ function restack(M) {
   M.desk.forEach((entry, k) => {
     entry.el.classList.toggle('hidden', k > 3);
     at(entry.el, ...deskXY(M, k));
+    entry.el.style.setProperty('--z', 31 + k); // higher boxes paint above the ones below, so every green dot shows
     setTip(entry.el, itemTip(M, entry.item, 'desk'));
   });
   M.ready.forEach((entry, k) => {
     entry.el.classList.toggle('hidden', k > 3);
     at(entry.el, ...readyXY(M, k));
+    entry.el.style.setProperty('--z', 31 + k);
     setTip(entry.el, itemTip(M, entry.item, 'ready'));
   });
   M.deskCount.classList.toggle('hidden', M.desk.length <= 4);
@@ -712,6 +714,7 @@ function takeOut(M, entry) {
     if (index >= 0) M[where].splice(index, 1);
   }
   entry.el.classList.remove('hidden');
+  entry.el.style.removeProperty('--z'); // back to its normal layer until it joins a pile again
   restack(M);
 }
 
