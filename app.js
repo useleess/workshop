@@ -1,15 +1,18 @@
 'use strict';
-// Useleess Mod Workshop: an animated office drawn from data/status.json (the current state) and
-// data/events.json (every change, numbered). Everything runs in the visitor's browser; nothing here
-// talks to Discord or any AI. The live data comes from the one-commit "data" branch, published into data/ next
-// to this page on every update; ?data=<folder> reads another data folder, ?poll=<seconds> checks faster.
+// Useleess Mod Workshop: an animated office drawn from the current state (status) and every change since (events,
+// numbered). Everything runs in the visitor's browser; nothing here talks to Discord or any AI. The live data comes
+// from the live relay (a Cloudflare Worker): /state gives the status and events, /live pushes every change. While the
+// relay is not answering, the page reads the one-commit "data" branch (status.json, events.json) every ?poll=<seconds>.
+// ?relay=<url> picks another relay, ?relay=off turns it off; ?data=<folder> reads another data folder.
 
-const SITE_VERSION = '28'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
+const SITE_VERSION = '29'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
 const params = new URLSearchParams(location.search);
 // live: read the data branch from GitHub's raw file server (unique ?t= is always fresh; Pages copies froze when published too often)
 const LIVE_DATA = 'https://raw.githubusercontent.com/useleess/workshop/data';
 const DATA = params.get('data') || (location.hostname.endsWith('github.io') ? LIVE_DATA : 'data');
 const POLL_MS = Math.max(2, Number(params.get('poll')) || 15) * 1000;
+const RELAY_DEFAULT = 'https://workshop-relay.useleess-mods.workers.dev';
+const RELAY = params.get('relay') === 'off' ? '' : params.get('relay') || (location.hostname.endsWith('github.io') ? RELAY_DEFAULT : '');
 const KIND_COLOR = { testers: '#8E5BD9', beta: '#F2B544', release: '#2E9E5B' };
 const KIND_TEXT = {
   testers: 'testers push (private GitHub only)',
@@ -49,6 +52,7 @@ const LOAD_SPOT = [1336, 420]; // where the loader stands to put crates on the t
 
 let status = null;
 let lastSeen = 0;
+const applied = []; // every event number passed to dispatch(), in order (read by the check)
 let floors = {};
 let floorList = [];
 let model = {};
@@ -666,6 +670,7 @@ function settle() {
 // ---------- events ----------
 
 function dispatch(event) {
+  applied.push(event.n);
   const M = model[event.mod];
   if (event.type === 'request') return onRequest(event);
   if (!M) return;
@@ -1420,7 +1425,116 @@ async function getJSON(name) {
   return res.json();
 }
 
+// ---------- the live relay: its data while it answers, the data folder when it doesn't ----------
+const RELAY_PING_MS = 25000; // a ping this often keeps the socket answering
+const RELAY_DEAD_MS = 60000; // silent this long = the socket is dead
+const RELAY_DOWN_MS = 5000; // the socket closed this long = the data folder is polled again
+const RELAY_RETRY_MS = 5000; // how soon the socket is tried again while the relay is down
+let link = null; // the relay socket while it exists
+let linked = false; // true while the relay supplies the data (socket open): the data folder is not read then
+let lastMsg = 0; // when the socket last said anything (an update or a pong)
+let lastPing = 0;
+let chain = Promise.resolve(); // relay steps run one at a time, in the order they arrived
+let pollTimer = 0;
+let pollAt = 0;
+
+async function relayGet(path) {
+  const res = await fetch(`${RELAY}/${path}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error(path + ' ' + res.status);
+  return res.json();
+}
+
+// one batch (from the relay or the data folder): the status (a stale one never replaces a newer one), then the
+// events not applied yet, in order
+function applyBatch(fresh, events) {
+  if (!status || (fresh.last_event || 0) >= (status.last_event || 0)) status = fresh;
+  const news = (events || []).filter((e) => e.n > lastSeen).sort((a, b) => a.n - b.n);
+  for (const event of news) {
+    lastSeen = event.n;
+    dispatch(event);
+  }
+  markDropped();
+  syncVotes();
+  renderScores();
+  if (view === 'dashboard') renderDashboard();
+  if (!busy) settle();
+}
+
+// what the relay has after the last event applied (a gap, or the socket just came back); if that fails, the socket
+// is closed and the next connection starts here again
+async function catchUp(ws) {
+  try {
+    const got = await relayGet(`state?since=${lastSeen}`);
+    applyBatch(got.status, got.events);
+    return true;
+  } catch (err) {
+    console.warn('workshop: could not load the relay state', err);
+    ws.close();
+    return false;
+  }
+}
+
+async function applyUpdate(ws, update) {
+  const events = (update.events || []).slice().sort((a, b) => a.n - b.n);
+  const first = events.find((e) => e.n > lastSeen);
+  if (first && first.n > lastSeen + 1 && !(await catchUp(ws))) return; // an update was lost: fill the gap from the relay
+  applyBatch(update.status, events);
+}
+
+function inOrder(step) {
+  chain = chain.then(step).catch((err) => console.warn('workshop: a relay step failed', err));
+}
+
+function connect() {
+  const ws = new WebSocket(RELAY.replace(/^http/, 'ws') + '/live');
+  const giveUp = setTimeout(() => ws.close(), RELAY_DOWN_MS); // no answer in 5 s: the relay is down
+  link = ws;
+  ws.onopen = () => {
+    clearTimeout(giveUp);
+    linked = true; // the data folder is not read from now on
+    lastMsg = lastPing = lastOk = Date.now();
+    pollFailed = false;
+    inOrder(() => catchUp(ws));
+  };
+  ws.onmessage = (msg) => {
+    lastMsg = lastOk = Date.now();
+    pollFailed = false;
+    if (msg.data === 'pong') return;
+    const update = JSON.parse(msg.data);
+    inOrder(() => applyUpdate(ws, update));
+  };
+  ws.onclose = () => {
+    clearTimeout(giveUp);
+    link = null;
+    if (linked) pollSoon(RELAY_DOWN_MS); // it was up: the data folder takes over after 5 s
+    linked = false;
+    setTimeout(connect, RELAY_RETRY_MS);
+  };
+}
+
+// every 5 s: a ping every 25 s; a socket silent for 60 s is dropped
+setInterval(() => {
+  if (!link || link.readyState !== WebSocket.OPEN) return;
+  if (Date.now() - lastMsg > RELAY_DEAD_MS) {
+    link.close();
+    return;
+  }
+  if (Date.now() - lastPing >= RELAY_PING_MS) {
+    lastPing = Date.now();
+    link.send('ping');
+  }
+}, 5000);
+
+// the next poll within ms (an earlier one already planned stays)
+function pollSoon(ms) {
+  if (pollTimer && pollAt <= Date.now() + ms) return;
+  clearTimeout(pollTimer);
+  pollAt = Date.now() + ms;
+  pollTimer = setTimeout(poll, ms);
+}
+
 async function poll() {
+  pollTimer = 0;
   try {
     const res = await fetch(`version.txt?t=${Date.now()}`, { cache: 'no-store' });
     if (res.ok && (await res.text()).trim() !== SITE_VERSION && !busy) {
@@ -1430,27 +1544,19 @@ async function poll() {
   } catch (err) {
     // no version file (local test server): keep going
   }
-  try {
-    const [fresh, log] = await Promise.all([getJSON('status.json'), getJSON('events.json').catch(() => ({ events: [] }))]);
-    if (!status || (fresh.last_event || 0) >= (status.last_event || 0)) status = fresh; // a stale copy of status.json keeps the newer one
-    const news = (log.events || []).filter((e) => e.n > lastSeen).sort((a, b) => a.n - b.n);
-    for (const event of news) {
-      lastSeen = event.n;
-      dispatch(event);
+  if (!linked) {
+    try {
+      const [fresh, log] = await Promise.all([getJSON('status.json'), getJSON('events.json').catch(() => ({ events: [] }))]);
+      applyBatch(fresh, log.events);
+      lastOk = Date.now();
+      pollFailed = false;
+    } catch (err) {
+      console.warn('workshop: could not load data', err);
+      pollFailed = true;
     }
-    markDropped();
-    syncVotes();
-    renderScores();
-    if (view === 'dashboard') renderDashboard();
-    if (!busy) settle();
-    lastOk = Date.now();
-    pollFailed = false;
-  } catch (err) {
-    console.warn('workshop: could not load data', err);
-    pollFailed = true;
   }
   showLive();
-  setTimeout(poll, POLL_MS);
+  pollSoon(POLL_MS);
 }
 
 // A push the live state no longer lists, with no event that ended it (the exporter dropped a crashed push):
@@ -1489,7 +1595,8 @@ function showLive() {
   const live = document.getElementById('live');
   if (!live) return;
   const ago = Math.round((Date.now() - lastOk) / 1000);
-  const ok = !pollFailed && ago < POLL_MS / 1000 * 3;
+  const limit = linked ? RELAY_DEAD_MS / 1000 : POLL_MS / 1000 * 3;
+  const ok = !pollFailed && ago < limit;
   live.className = 'live ' + (ok ? 'ok' : 'bad');
   live.textContent = ok ? `Live · updated ${ago < 5 ? 'just now' : ago + ' s ago'}` : "Can't reach the live data";
 }
@@ -1506,9 +1613,22 @@ bar.addEventListener('click', (e) => {
 });
 window.addEventListener('resize', fit);
 
+// the status the page starts from: the relay's when it answers, else the data folder (the events are not replayed:
+// the status already shows them)
+async function loadStart() {
+  if (RELAY) {
+    try {
+      return (await relayGet('state?since=0')).status;
+    } catch (err) {
+      console.warn('workshop: the relay is not answering, using the data folder', err);
+    }
+  }
+  return getJSON('status.json');
+}
+
 (async function start() {
   try {
-    status = await getJSON('status.json');
+    status = await loadStart();
   } catch (err) {
     stage.textContent = 'Could not load the workshop data.';
     return;
@@ -1516,7 +1636,8 @@ window.addEventListener('resize', fit);
   lastSeen = status.last_event || 0; // new visitors start from now, not from the whole history
   buildAll();
   fit();
-  setTimeout(poll, POLL_MS);
+  if (RELAY) connect();
+  pollSoon(POLL_MS);
 })();
 
 // ---------- read-only hook for the automatic check (tools/check/check.py): where everything is ----------
@@ -1537,6 +1658,6 @@ window.__office = {
         for (const i of (job.packed ? job.packed.items : job.items) || []) items[`${key}#${i.id}`] = 'crate';
       }
     }
-    return { items, pushes, closed: closedJobs, busy, rebuilds, last_event: lastSeen, current };
+    return { items, pushes, closed: closedJobs, busy, rebuilds, last_event: lastSeen, current, applied: applied.slice() };
   },
 };
