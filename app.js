@@ -4,7 +4,7 @@
 // talks to Discord or any AI. The live data comes from the one-commit "data" branch, published into data/ next
 // to this page on every update; ?data=<folder> reads another data folder, ?poll=<seconds> checks faster.
 
-const SITE_VERSION = '23'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
+const SITE_VERSION = '24'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
 const params = new URLSearchParams(location.search);
 const DATA = params.get('data') || 'data';
 const POLL_MS = Math.max(2, Number(params.get('poll')) || 15) * 1000;
@@ -657,7 +657,7 @@ function modelSignature() {
 }
 // When nothing is moving, make sure the office matches the latest snapshot (missed events, renames...).
 function settle() {
-  if (busy || !status || status.last_event > lastSeen) return;
+  if (busy || !status || status.last_event !== lastSeen) return;
   if (signature(status.mods) !== modelSignature()) buildAll();
 }
 
@@ -1430,7 +1430,7 @@ async function poll() {
   }
   try {
     const [fresh, log] = await Promise.all([getJSON('status.json'), getJSON('events.json').catch(() => ({ events: [] }))]);
-    status = fresh;
+    if (!status || (fresh.last_event || 0) >= (status.last_event || 0)) status = fresh; // a stale copy of status.json keeps the newer one
     const news = (log.events || []).filter((e) => e.n > lastSeen).sort((a, b) => a.n - b.n);
     for (const event of news) {
       lastSeen = event.n;
