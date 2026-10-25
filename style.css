@@ -297,10 +297,12 @@ button { font: inherit; color: inherit; }
 @keyframes pop { from { transform: scale(0.3); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 /* conveyor */
 .belt { z-index: 7; border: 3px solid var(--ink); border-radius: 9px; animation: belt-x 0.6s linear infinite; }
-.belt.h { width: 294px; height: 20px; background: repeating-linear-gradient(90deg, #3B4A5E 0 10px, #6F7782 10px 20px); }
-.belt.h.short { width: 44px; animation: none; }
+.belt.h { width: 264px; height: 20px; border-left: 0; border-radius: 0 9px 9px 0; background: repeating-linear-gradient(90deg, #3B4A5E 0 10px, #6F7782 10px 20px); }
 .belt.v { width: 24px; height: 204px; background: repeating-linear-gradient(0deg, #3B4A5E 0 10px, #6F7782 10px 20px); animation-name: belt-up; }
 .belt.v.down { animation-name: belt-down; }
+/* the down belt turns into the long belt: one belt, the corner piece joins them (no seam) */
+.belt.v.down.turn { height: 184px; border-bottom: 0; border-radius: 9px 9px 0 0; }
+.belt.corner { width: 24px; height: 20px; border-top: 0; border-right: 0; border-radius: 0 0 0 20px; background: repeating-linear-gradient(90deg, #3B4A5E 0 10px, #6F7782 10px 20px); }
 @keyframes belt-x { to { background-position: 20px 0; } }
 @keyframes belt-up { to { background-position: 0 -20px; } }
 @keyframes belt-down { to { background-position: 0 20px; } }

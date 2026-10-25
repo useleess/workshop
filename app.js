@@ -4,7 +4,7 @@
 // talks to Discord or any AI. The live data comes from the one-commit "data" branch, published into data/ next
 // to this page on every update; ?data=<folder> reads another data folder, ?poll=<seconds> checks faster.
 
-const SITE_VERSION = '25'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
+const SITE_VERSION = '26'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
 const params = new URLSearchParams(location.search);
 // live: read the data branch from GitHub's raw file server (unique ?t= is always fresh; Pages copies froze when published too often)
 const LIVE_DATA = 'https://raw.githubusercontent.com/useleess/workshop/data';
@@ -365,13 +365,13 @@ function buildFloor(f) {
       <div class="wheel" style="left:18px"></div><div class="wheel" style="left:140px"></div>`);
     F.trucks = { gh: truck(290, 'GitHub', '#7FB7E8'), mr: truck(470, 'Modrinth', '#2E9E5B'), count: 0, leaving: null, timer: 0 };
     // the conveyor: from the judge's bench (and down from the elevator) to the loader at the trucks
-    abs('belt h', 1296, 446).dataset.surface = 'belt';
-    abs('belt v down', 1302, 262).dataset.surface = 'belt';
+    abs('belt v down turn', 1302, 262).dataset.surface = 'belt';
+    abs('belt corner', 1302, 446).dataset.surface = 'belt';
+    abs('belt h', 1326, 446).dataset.surface = 'belt';
     F.van = abs('van hidden', -440, 560, '<div class="box-part">MAIL</div><div class="cab"></div><div class="wheel" style="left:16px"></div><div class="wheel" style="left:124px"></div>');
   } else {
     abs('upstairs-bay', 1340, 266);
     abs('upstairs-sign', 1362, 296, `Shipping happens on Floor 1. Approved crates ride the conveyor into the elevator, ${f.type === 'dungeon' ? 'up' : 'down'} to the loader at the trucks.`);
-    abs('belt h short', 1296, 446).dataset.surface = 'belt';
     abs('belt v up', 1302, 262).dataset.surface = 'belt';
   }
 
