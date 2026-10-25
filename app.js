@@ -5,7 +5,7 @@
 // relay is not answering, the page reads the one-commit "data" branch (status.json, events.json) every ?poll=<seconds>.
 // ?relay=<url> picks another relay, ?relay=off turns it off; ?data=<folder> reads another data folder.
 
-const SITE_VERSION = '29'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
+const SITE_VERSION = '30'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
 const params = new URLSearchParams(location.search);
 // live: read the data branch from GitHub's raw file server (unique ?t= is always fresh; Pages copies froze when published too often)
 const LIVE_DATA = 'https://raw.githubusercontent.com/useleess/workshop/data';
@@ -681,21 +681,38 @@ function dispatch(event) {
   if (event.type === 'tests_done') return onTestsDone(M, event);
   if (event.type === 'judged') return onJudged(M, event);
   if (event.type === 'removed') {
-    const found = findEntry(M, event.item);
-    if (found) {
+    const drop = (found) => {
+      takeOut(M, found.entry);
       found.entry.el.remove();
-      M[found.where].splice(found.index, 1);
-      restack(M);
+    };
+    const found = findEntry(M, event.item);
+    if (found) drop(found);
+    else if (findEntry(M, event.item, true)) { // still flying to its spot: removed once it has landed
+      queue('desk').push(async () => {
+        const landed = await waitFor(() => findEntry(M, event.item), 90000);
+        if (landed) drop(landed);
+      });
     }
   }
 }
 
-function findEntry(M, id) {
+// a request that is still flying to its spot (pending) is not there yet: nobody may take or move it, unless asked for
+function findEntry(M, id, withPending) {
   for (const where of WHERE) {
-    const index = M[where].findIndex((e) => e.item.id === id);
+    const index = M[where].findIndex((e) => e.item.id === id && (withPending || !e.el.classList.contains('pending')));
     if (index >= 0) return { where, index, entry: M[where][index] };
   }
   return null;
+}
+
+// a request leaves its list because someone takes it: it shows while it is carried (also an overflow one), the "+N" drops
+function takeOut(M, entry) {
+  for (const where of WHERE) {
+    const index = M[where].indexOf(entry);
+    if (index >= 0) M[where].splice(index, 1);
+  }
+  entry.el.classList.remove('hidden');
+  restack(M);
 }
 
 function onRequest(event) {
@@ -744,7 +761,7 @@ async function mailTrip() {
 // straight to its place)
 async function postLetter(F, man, e) {
   const M = model[e.mod];
-  if (findEntry(M, e.item)) return;
+  if (findEntry(M, e.item, true)) return;
   const item = { id: e.item, title: e.title, kind: e.kind, status: e.status || 'reported', votes: 0,
     lane: e.lane || null, since: (e.t || '').slice(0, 10) || today() };
   const letter = el('div', 'letter', F.room);
@@ -812,7 +829,7 @@ async function carryToBoard(M, ticket, entry, done) {
 async function relocate(M, found, item) {
   const where = whereOf(item);
   const from = found.entry.el;
-  M[found.where].splice(M[found.where].indexOf(found.entry), 1);
+  takeOut(M, found.entry);
   const room = from.closest('.room');
   // an accepted request at the desk: the person picks it up off the desk (no hovering ticket while it waits)
   const carry = where === 'board' && (found.where === 'front' || found.where === 'info') && floors.f1.clerk;
@@ -861,7 +878,7 @@ function onStatus(M, event) {
       let found = await waitFor(() => findEntry(M, event.item), 90000);
       if (!found || found.where === 'desk') return;
       if (found.where === 'ready') {
-        M.ready.splice(found.index, 1);
+        takeOut(M, found.entry);
         found.entry.item.status = 'in-progress';
         M.desk.push(found.entry);
         restack(M);
@@ -878,8 +895,8 @@ function onStatus(M, event) {
         const [bx, by] = pos(now.entry.el);
         const stand = [clamp(bx - 14, AISLE, 540), 286];
         await walk(f, [[pos(f)[0], CORRIDOR], [AISLE, CORRIDOR], [AISLE, 286], stand]);
-        const entry = M.board.splice(M.board.indexOf(now.entry), 1)[0];
-        restack(M);
+        const entry = now.entry;
+        takeOut(M, entry);
         entry.el.remove();
         const item = { ...entry.item, status: 'in-progress' };
         const box = itemThing(F.room, item, item.lane === 'auto' ? ' auto' : '');
@@ -901,7 +918,7 @@ function onStatus(M, event) {
         return f && f.where !== 'board' ? f : null;
       }, 120000);
       if (!found || found.where === 'ready') return;
-      M.desk.splice(found.index, 1);
+      takeOut(M, found.entry);
       found.entry.item.status = 'done';
       await move(found.entry.el, ...readyXY(M, M.ready.length), 600, 30);
       M.ready.push(found.entry);
@@ -922,7 +939,7 @@ function onStatus(M, event) {
         return;
       }
       if (found.where === 'desk' || found.where === 'ready') { // taken off the desk: straight back
-        M[found.where].splice(found.index, 1);
+        takeOut(M, found.entry);
         found.entry.el.remove();
         addEntry(M, item, whereOf(item));
         return;
@@ -1001,14 +1018,13 @@ async function pickUp(ch, thing) {
 
 async function packCrate(M, job, event) { // the builder packs the finished requests into one crate on the desk
   const wanted = new Set(event.items || []);
-  let boxes = [...M.ready, ...M.desk].filter((e) => wanted.has(e.item.id));
-  if (!wanted.size) boxes = [...M.ready];
+  const placed = (e) => !e.el.classList.contains('pending');
+  let boxes = [...M.ready, ...M.desk].filter((e) => placed(e) && wanted.has(e.item.id));
+  if (!wanted.size) boxes = M.ready.filter(placed);
+  for (const b of boxes) takeOut(M, b); // taken off the desk, shown while they fly into the crate
   refreshDesk(M, 'Packing v' + event.version, 'done');
   await Promise.all(boxes.map((b) => move(b.el, M.x + 110, M.y + 24, 500, 20)));
-  for (const b of boxes) {
-    b.el.remove();
-    for (const where of ['ready', 'desk']) M[where] = M[where].filter((e) => e !== b);
-  }
+  for (const b of boxes) b.el.remove();
   const crate = crateFor(M, event, boxes.length || wanted.size);
   at(crate, M.x + 102, M.y + 12);
   restack(M);
