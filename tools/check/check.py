@@ -17,6 +17,20 @@ E  looks     fixed settled scenes (both floors, dashboard, phone, pushes in flig
              baseline and pixel-diffed. Without --request any difference fails; with --request an AI reviewer must
              explain every changed region from the request text.
 
+Relay scenarios (names start with "relay-", run them alone with --only relay-basic,relay-drop,relay-gap): the page opened
+with ?relay=<url of tools/check/relay_mock.py> must get its data from the relay only (zero requests for status.json /
+events.json from the data folder, seen in the static server's request log), show every event within 2 s of its being written,
+exactly once (needs window.__office.snapshot().applied = every event number the page applied, in order), fall back to polling
+the data folder while the relay is down, and go back to the relay alone when it returns; a missed websocket message must be
+filled from the relay's /state, never from the data folder.
+
+Relay scenarios (relay-basic, relay-drop, relay-gap; run alone with --only relay-basic,relay-drop,relay-gap): the page opened
+with ?relay=<url of tools/check/relay_mock.py> must get its data from the relay only (zero requests for status.json /
+events.json of the data folder, seen in the static server's request log), have every event within 2 s of its being written,
+exactly once (needs window.__office.snapshot().applied = every event number the page dispatched, in order), poll the data
+folder while the relay is down, and use the relay alone again once it is back; a lost websocket update must be filled from
+the relay's /state, never from the data folder.
+
 Baseline = origin/main unless --baseline REF is given. Runs only inside this repo copy (works in a ladder worktree), its
 git-ignored data-test folder and one temp folder. Always kills the browsers and the servers it started.
 """
@@ -84,9 +98,11 @@ def run(cmd, cwd=SITE, check=True):
 
 def start_server(root):
     port = cdp.free_port()
-    p = subprocess.Popen([sys.executable, '-m', 'http.server', str(port), '--bind', '127.0.0.1', '--directory', str(root)],
+    log = Path(TMP) / f'requests-{port}.log'  # every request the page makes, with its time (scenarios.data_requests reads it)
+    p = subprocess.Popen([sys.executable, str(HERE / 'static_server.py'), str(port), str(root), str(log)],
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     PROCS.append(p)
+    scenarios.SERVER_LOGS[f'http://127.0.0.1:{port}'] = log
     import urllib.request
     for _ in range(50):
         try:

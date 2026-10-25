@@ -11,6 +11,8 @@ import types
 from collections import defaultdict
 from pathlib import Path
 
+import relay_mock
+
 POLL_S = 2  # ?poll=2: the page looks for news every 2 s (its minimum)
 SAMPLE_SLACK_S = 0.05  # clock/ordering slack when comparing a sample time with an event's write time
 QUIET_S = 2.0  # "nothing is moving" = no finite animation and no busy office for this long
@@ -31,6 +33,12 @@ STAGE_NEEDS = {
 }
 AFTER_TESTS = {'tested', 'to-judge', 'judging', 'conveyor', 'staged', 'loading', 'returning'}
 AFTER_JUDGE = {'to-judge', 'judging', 'conveyor', 'staged', 'loading', 'returning'}
+
+RELAY_S = 2  # relay mode: an event must reach the page within this many seconds of being written (receipt), and the
+             # effect budgets below start from it instead of the poll time
+RELAY_FALLBACK_S = 12  # events written while the relay is down (or just before / after): the page needs ~5 s to notice, then a poll
+RELAY_RECONNECT_S = 30  # how long the page may take to find a relay that came back
+SERVER_LOGS = {}  # origin of a static server -> its request log file (set by check.py)
 
 A, B, D, D2 = 'litematica-turbo', 'schematica-upgraded', 'redstone-scope', 'storage-turbo'  # fixture mods (A, B: Floor 1)
 
@@ -80,6 +88,10 @@ def load_sim(site, data_dir, rec):
     return sim
 
 
+class Abort(Exception):
+    """the scenario cannot go on (its failure is already recorded)"""
+
+
 class Ctx:
     def __init__(self, name, site, browser, origin, fixture, frames_dir):
         self.name, self.site, self.b, self.origin, self.fixture, self.frames_dir = name, site, browser, origin, fixture, frames_dir
@@ -92,6 +104,8 @@ class Ctx:
         self.opened = None
         self.initial = {}
         self.compares = []  # (time, label) of every settle+compare, for the report
+        self.relay = None  # a relay_mock.RelayMock in the relay-* scenarios
+        self.outages = []  # [time the relay went down, time the page was back on it or None]
 
     # ---- helpers for scenario scripts ----
     def status(self):
@@ -103,11 +117,70 @@ class Ctx:
 
     async def open(self, floor='f1'):
         self.initial, _ = expected_from_status(self.status())
+        self.initial_last = self.status()['last_event']
         self.t_open = time.time()
-        await self.b.goto(f'{self.origin}/index.html?data=data-test/{self.name}&poll={POLL_S}', 1400, 900)
+        extra = ''
+        if self.relay:
+            self.b.origins += (self.relay.url,)  # the browser may talk to the relay (everything else off-site is answered empty)
+            extra = f'&relay={self.relay.url}'
+        await self.b.goto(f'{self.origin}/index.html?data=data-test/{self.name}&poll={POLL_S}{extra}', 1400, 900)
         self.opened = True
+        if self.relay:
+            await self.expect_relay_start()
         if floor != 'f1':
             await self.show(floor)
+
+    # ---- relay helpers ----
+    def data_requests(self, since=0.0):
+        """[(time, path)] of the page's requests for status.json / events.json of THIS scenario's data folder (version.txt is page code, not data)"""
+        out = []
+        try:
+            lines = SERVER_LOGS[self.origin].read_text(encoding='utf-8').splitlines()
+        except (KeyError, OSError):
+            return out
+        for line in lines:
+            t, _, path = line.partition(' ')
+            if f'/data-test/{self.name}/' in path and ('status.json' in path or 'events.json' in path) and float(t) >= since:
+                out.append((float(t), path))
+        return out
+
+    def relay_calls(self, since=0.0, prefix='/state'):
+        return [(t, p) for t, _, p in self.relay.log if t >= since and p.startswith(prefix)]
+
+    async def expect_relay_start(self):
+        """The page must load /state and open /live on the relay right after opening, else the scenario cannot say anything."""
+        end = time.time() + 10
+        while time.time() < end and not (self.relay_calls(self.t_open) and self.relay.live_connects):
+            await asyncio.sleep(0.2)
+        if not self.relay_calls(self.t_open):
+            self.fail('C', f'relay mode: the page opened with ?relay={self.relay.url} never asked the relay for /state within 10 s (relay mode is not implemented?)')
+        if not self.relay.live_connects:
+            self.fail('C', 'relay mode: the page never opened the relay websocket /live within 10 s')
+        if not (self.relay_calls(self.t_open) and self.relay.live_connects):
+            raise Abort()
+
+    async def relay_down(self):
+        self.outages.append([time.time(), None])
+        self.relay.down()
+
+    async def relay_up(self):
+        """Bring the relay back and wait until the page is on it again (a new /live socket) plus a moment for its in-flight polls."""
+        before = len(self.relay.live_connects)
+        t_up = time.time()
+        self.relay.up()
+        end = t_up + RELAY_RECONNECT_S
+        while time.time() < end and len(self.relay.live_connects) == before:
+            await asyncio.sleep(0.25)
+        if len(self.relay.live_connects) == before:
+            self.fail('C', f'relay mode: the relay was back for {RELAY_RECONNECT_S} s but the page never reconnected to /live (it must keep retrying)')
+            raise Abort()
+        await asyncio.sleep(3)  # a data poll that was already on its way may still land
+        self.outages[-1][1] = time.time()
+        return t_up
+
+    def in_outage(self, t):
+        """True for a moment in, just before or shortly after a relay outage (the page may legitimately be on the data folder)"""
+        return any(a - 1 <= t <= (b if b else float('inf')) + 3 for a, b in self.outages)
 
     async def show(self, floor):
         await self.b.eval(f"document.querySelector('[data-go=\"{floor}\"]').click()")
@@ -342,12 +415,83 @@ async def sc_burst(c):
     await c.settle('burst: request + decisions written at once')
 
 
+async def sc_relay_basic(c):
+    """A request arriving, a desk decision and a push that passes, all through the relay."""
+    await c.open()
+    ids = c.request(A, 2)
+    await c.settle('relay: requests arriving')
+    c.sim.decide(A, ids[0], 'auto')
+    await c.settle('relay: a desk decision')
+    c.sim.set_status(A, 2, 'in-progress')
+    await c.settle('relay: item started')
+    c.sim.set_status(A, 2, 'done')
+    await c.settle('relay: item done')
+    await push_flow(c, A, 'beta', 'pass', 'relay push')
+    asked = c.data_requests(c.t_open)
+    if asked:
+        c.fail('C', f'relay mode: the page asked the data folder {len(asked)} time(s) while the relay was up (first: {asked[0][1]}); it must use the relay only')
+
+
+async def sc_relay_drop(c):
+    """The relay goes down mid-story while events keep coming, then comes back."""
+    await c.open()
+    c.request(A, 1)
+    await c.settle('relay: a request before the outage')
+    quiet = c.data_requests(c.t_open)
+    if quiet:
+        c.fail('C', f'relay mode: the page asked the data folder {len(quiet)} time(s) before any outage (first: {quiet[0][1]})')
+    await c.relay_down()
+    t_down = time.time()
+    ids = c.request(B, 2)  # written while the relay is down: only the data folder has them
+    await asyncio.sleep(1)
+    c.sim.decide(B, ids[0], 'auto')
+    await c.wait_for('the events written during the outage to reach the page through the data folder',
+                     lambda s: s['last_event'] >= c.status()['last_event'], 40)
+    if not c.data_requests(t_down):
+        c.fail('C', 'relay mode: the relay was down but the page never fell back to polling the data folder')
+    c.request(D, 1)  # a later outage event
+    await c.settle('relay: caught up through the data folder during the outage')
+    t_up = await c.relay_up()
+    if not c.relay_calls(t_up):
+        c.fail('C', 'relay mode: the page came back to the relay but did not load its state (GET /state?since=<last seen>) first')
+    t_back = time.time()
+    ids = c.request(A, 2)
+    await asyncio.sleep(1.5)
+    c.sim.decide(A, ids[0], 'with-me')
+    await c.settle('relay: events after the relay came back')
+    late = c.data_requests(t_back)
+    if late:
+        c.fail('C', f'relay mode: the relay was back, yet the page still asked the data folder {len(late)} time(s) from {late[0][0] - t_back:.1f} s after '
+                    f'the reconnect on (first: {late[0][1]}); it must use the relay alone again')
+
+
+async def sc_relay_gap(c):
+    """One websocket update is lost: the next one skips event numbers, so the page must fill the gap from the relay's /state."""
+    await c.open()
+    c.request(A, 1)
+    await c.settle('relay: a request before the gap')
+    seen = c.status()['last_event']
+    c.relay.drop_next(1)
+    c.request(B, 1)  # this update never reaches the page
+    await asyncio.sleep(1)
+    c.request(D, 1)  # this one does, with numbers that skip the lost one
+    await c.settle('relay: after a lost websocket update')
+    fills = [p for _, p in c.relay_calls(c.t_open + 1) if f'since={seen}' in p]
+    if not fills:
+        c.fail('C', f'relay mode: an update skipped event numbers (the page had seen up to #{seen}) but the page never asked the relay GET /state?since={seen} '
+                    f'(state requests: {[p for _, p in c.relay_calls(c.t_open)]})')
+    bad = c.data_requests(c.t_open)
+    if bad:
+        c.fail('C', f'relay mode: the page asked the data folder {len(bad)} time(s) (first: {bad[0][1]}); a gap must be filled from the relay /state')
+
+
 # name -> (function, in --quick)
 SCENARIOS = {
     'requests': (sc_requests, False), 'desk': (sc_desk, False), 'dungeon-desk': (sc_dungeon_desk, False),
     'push-pass': (sc_push_pass, True), 'tests-fail': (sc_tests_fail, False), 'judge-fail': (sc_judge_fail, False),
     'dungeon-push': (sc_dungeon_push, False), 'mid-testing': (sc_mid_testing, False),
     'mid-judging': (sc_mid_judging, False), 'mid-shipping': (sc_mid_shipping, False), 'burst': (sc_burst, False),
+    'relay-basic': (sc_relay_basic, False), 'relay-drop': (sc_relay_drop, False), 'relay-gap': (sc_relay_gap, False),
 }
 
 
@@ -367,6 +511,37 @@ def event_targets(e):
 
 def board_both(place):
     return {'board:auto', 'board:with-me'} if place and place.startswith('board:') else {place}
+
+
+def relay_checks(c, events, snaps, rel):
+    """Relay mode: every event reaches the page within RELAY_S (D2), and each is applied exactly once, in order (D2).
+    Needs the hook window.__office.snapshot().applied = list of every event number the page dispatched, in order."""
+    if not snaps or any('applied' not in s for _, s in snaps):
+        c.fail('D2', 'the page offers no window.__office.snapshot().applied (list of every event number it applied, in order): '
+                     'the check cannot prove that no event was missed or doubled')
+        return
+    first_seen = {}
+    for ts, s in snaps:
+        for n in s['applied']:
+            first_seen.setdefault(n, ts)
+    for tw, e in events:
+        if tw < c.t_open or c.in_outage(tw):
+            continue
+        at = first_seen.get(e['n'])
+        if at is None:
+            c.fail('D2', f"event #{e['n']} {e['type']} (written {rel(tw)}) never reached the page")
+        elif at - tw > RELAY_S + 0.25:  # + the 100 ms sampling
+            c.fail('D2', f"event #{e['n']} {e['type']} (written {rel(tw)}) reached the page after {at - tw:.1f} s, limit {RELAY_S} s in relay mode")
+    applied = snaps[-1][1]['applied']
+    want = sorted(n for n in c.rec if n > c.initial_last)
+    dupes = sorted({n for n in applied if applied.count(n) > 1})
+    if dupes:
+        c.fail('D2', f'events applied more than once: {dupes}')
+    missing = [n for n in want if n not in applied]
+    if missing:
+        c.fail('D2', f'events never applied by the page: {missing}')
+    if applied != sorted(applied):
+        c.fail('D2', f'events applied out of order: {applied}')
 
 
 def analyse(c, dump):
@@ -447,9 +622,13 @@ def analyse(c, dump):
             c.fail('D2', f'{label}: its effect never showed in the office')
             continue
         waiting = sum(1 for tw2, e2 in checked if e2['n'] != e['n'] and tw2 <= tw and (shown[e2['n']] is None or shown[e2['n']] > tw))
-        limit = POLL_S + EFFECT_BUDGET_S[e['type']] * (1 + waiting)
+        lat = (RELAY_FALLBACK_S if c.in_outage(tw) else RELAY_S) if c.relay else POLL_S
+        limit = lat + EFFECT_BUDGET_S[e['type']] * (1 + waiting)
         if at - tw > limit:
-            c.fail('D2', f'{label}: showed after {at - tw:.0f} s, limit {limit} s ({POLL_S} s poll + {EFFECT_BUDGET_S[e["type"]]} s x {1 + waiting})')
+            c.fail('D2', f'{label}: showed after {at - tw:.0f} s, limit {limit} s ({lat} s to reach the page + {EFFECT_BUDGET_S[e["type"]]} s x {1 + waiting})')
+
+    if c.relay:
+        relay_checks(c, events, snaps, rel)
 
     # D3 the office never had to draw itself again from the data, never reloaded by itself
     if snaps:
@@ -461,6 +640,8 @@ def analyse(c, dump):
     if dump['snapError']:
         c.fail('D2', 'window.__office.snapshot() threw: ' + dump['snapError'])
     for err in c.b.errors:
+        if c.relay and c.outages and c.relay.url.split('//')[1] in err:
+            continue  # the browser logs every refused relay connection / 503 during an outage by itself: expected there
         c.fail('B', f'{c.name}: {err}')
 
 
@@ -470,10 +651,18 @@ async def run_scenario(name, site, browser, origin, fixture, frames_dir):
     c = Ctx(name, site, browser, origin, fixture, frames_dir)
     browser.errors.clear()
     try:
+        if name.startswith('relay-'):
+            c.relay = relay_mock.RelayMock(c.data_dir)
+            await c.relay.start()
         await fn(c)
         dump = await browser.eval('window.__probe.dump()')
         analyse(c, dump)
+    except Abort:
+        pass
     except Exception as err:  # noqa: BLE001 - reported as a failure of this scenario
         c.fail('C', f'{name}: the scenario script crashed: {type(err).__name__}: {err}')
+    finally:
+        if c.relay:
+            await c.relay.stop()
     c.seconds = time.time() - started
     return c
