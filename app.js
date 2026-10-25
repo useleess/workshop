@@ -4,9 +4,11 @@
 // talks to Discord or any AI. The live data comes from the one-commit "data" branch, published into data/ next
 // to this page on every update; ?data=<folder> reads another data folder, ?poll=<seconds> checks faster.
 
-const SITE_VERSION = '24'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
+const SITE_VERSION = '25'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
 const params = new URLSearchParams(location.search);
-const DATA = params.get('data') || 'data';
+// live: read the data branch from GitHub's raw file server (unique ?t= is always fresh; Pages copies froze when published too often)
+const LIVE_DATA = 'https://raw.githubusercontent.com/useleess/workshop/data';
+const DATA = params.get('data') || (location.hostname.endsWith('github.io') ? LIVE_DATA : 'data');
 const POLL_MS = Math.max(2, Number(params.get('poll')) || 15) * 1000;
 const KIND_COLOR = { testers: '#8E5BD9', beta: '#F2B544', release: '#2E9E5B' };
 const KIND_TEXT = {
