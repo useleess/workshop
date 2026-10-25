@@ -5,7 +5,7 @@
 // relay is not answering, the page reads the one-commit "data" branch (status.json, events.json) every ?poll=<seconds>.
 // ?relay=<url> picks another relay, ?relay=off turns it off; ?data=<folder> reads another data folder.
 
-const SITE_VERSION = '32'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
+const SITE_VERSION = '33'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
 const params = new URLSearchParams(location.search);
 // live: read the data branch from GitHub's raw file server (unique ?t= is always fresh; Pages copies froze when published too often)
 const LIVE_DATA = 'https://raw.githubusercontent.com/useleess/workshop/data';
@@ -31,7 +31,7 @@ const VERDICT = { auto: ['AUTOPILOT', '#8FE3B0'], 'with-me': ['WITH USELEESS', '
   out: ['NOT PLANNED', '#B8C0C8'], front: ['ANSWERED', '#FFFFFF'] };
 const LANE_X = { auto: 184, 'with-me': 362 };
 const LANE_MAX = 5;
-const FRONT_MAX = 8;
+const FRONT_MAX = 16;
 const FRONT_ROW = 4;
 const NAMETAG = 'useless'; // the name on the front desk (user's wording)
 const CLERK_SEAT = [214, 310]; // the user's person, behind the front desk on Floor 1
@@ -319,7 +319,8 @@ function buildFloor(f) {
     abs('zone-front', 0, 266);
     F.clerk = makeChar(room, { head: '#F5C9A8', cap: '#5865A8', torso: '#5865A8', label: NAMETAG, cls: 'seated',
       x: CLERK_SEAT[0], y: CLERK_SEAT[1] });
-    abs('inbox', 36, 314).dataset.surface = 'inbox';
+    F.inbox = abs('inbox', 36, 314);
+    F.inbox.dataset.surface = 'inbox';
     F.counter = abs('counter', 30, 300, `<div class="counter-top"></div><div class="counter-front"><b>FRONT DESK</b>
       <span class="counter-note"></span></div>`);
     F.counterNote = F.counter.querySelector('.counter-note');
@@ -427,9 +428,11 @@ function readyXY(M, k) { return [M.x - 44, M.y + 86 - 24 * Math.min(k, 3)]; }
 const pileFirst = (pile) => Math.max(0, pile.length - 4);
 // the "+N" counter sits just right of a pile's top box (a 26 px box + 4 px gap, centred on it)
 const countXY = ([x, y]) => [x + 30, y + 4];
-// the front desk's inbox (2 rows) and the MORE INFO tray by the door, both on Floor 1
+// the front desk's inbox rows (today's 2 rows as they always were, then 2 more stacked upward above them) and the MORE INFO
+// tray by the door, both on Floor 1; the front desk's "+N" tile sits beside its bottom row, the tray's takes the last spot
+const FRONT_ROW_Y = [318, 343, 293, 268];
 const TRAY = {
-  front: { max: FRONT_MAX, xy: (k) => [44 + 36 * (k % FRONT_ROW), 318 + 25 * Math.floor(k / FRONT_ROW)] },
+  front: { max: FRONT_MAX, xy: (k) => [44 + 36 * (k % FRONT_ROW), FRONT_ROW_Y[Math.floor(k / FRONT_ROW)]], more: [44 + 36 * FRONT_ROW, 345] },
   info: { max: 4, xy: (k) => [16 + 36 * k, 508] },
 };
 
@@ -543,20 +546,26 @@ function restackDesk() {
   const mods = Object.values(model);
   for (const where of ['front', 'info']) {
     const list = mods.flatMap((M) => M[where]).sort((a, b) => a.seq - b.seq);
-    const { max, xy } = TRAY[where];
+    const { max, xy, more: moreXY } = TRAY[where];
     const full = list.length > max;
+    const spots = moreXY ? max : max - 1; // spots that show a request when the tray is full
     list.forEach((entry, k) => {
-      entry.el.classList.toggle('hidden', full && k >= max - 1);
-      at(entry.el, ...xy(Math.min(k, max - 1)));
+      entry.el.classList.toggle('hidden', full && k >= spots);
+      at(entry.el, ...xy(Math.min(k, spots - 1)));
       setTip(entry.el, itemTip(entry.M, entry.item, where));
     });
     const more = D.frontMore[where];
     more.classList.toggle('hidden', !full);
     if (full) {
-      at(more, ...xy(max - 1));
-      more.textContent = '+' + (list.length - max + 1);
+      at(more, ...(moreXY || xy(max - 1)));
+      more.textContent = '+' + (list.length - spots);
     }
     if (where === 'front') {
+      // the inbox box grows upward with its rows (4 per row) and stops 6 px under the to-do board (bottom edge 258)
+      const rows = Math.max(1, Math.ceil(Math.min(list.length, spots) / FRONT_ROW));
+      const top = Math.min(314, Math.min(...FRONT_ROW_Y.slice(0, rows)) - 4);
+      at(D.inbox, 36, top);
+      D.inbox.style.height = 370 - top + 'px'; // the box always ends on the counter's top edge (370)
       const oldest = list.map((e) => e.item.since).filter(Boolean).sort()[0];
       D.counterNote.textContent = list.length
         ? `${list.length} waiting for Useleess${oldest ? ' · oldest since ' + niceDate(oldest) : ''}`
