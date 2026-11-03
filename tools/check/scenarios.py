@@ -545,6 +545,17 @@ async def sc_handoff_order(c):
     await c.settle('relay: a push whose events came close together')
 
 
+async def sc_decide_start_same_second(c):
+    """A request decided 'with-me' and started in the same second (no pause between the two events): both handlers find it
+    still at the front desk, and it must land on the board once, not twice."""
+    await c.open()
+    ids = c.request(A, 1)
+    await c.settle('a request at the front desk')
+    c.sim.decide(A, ids[0], 'with-me')
+    c.sim.set_status(A, ids[0], 'in-progress')
+    await c.settle('decided with-me and started in the same second (one board entry, carried to the builder)')
+
+
 # name -> (function, in --quick)
 SCENARIOS = {
     'requests': (sc_requests, False), 'desk': (sc_desk, False), 'dungeon-desk': (sc_dungeon_desk, False),
@@ -553,6 +564,7 @@ SCENARIOS = {
     'mid-judging': (sc_mid_judging, False), 'mid-shipping': (sc_mid_shipping, False), 'burst': (sc_burst, False),
     'overflow-carry': (sc_overflow_carry, False), 'handoff-order': (sc_handoff_order, False),
     'relay-basic': (sc_relay_basic, False), 'relay-drop': (sc_relay_drop, False), 'relay-gap': (sc_relay_gap, False),
+    'decide-start-same-second': (sc_decide_start_same_second, False),
 }
 
 

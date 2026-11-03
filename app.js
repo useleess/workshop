@@ -5,7 +5,7 @@
 // relay is not answering, the page reads the one-commit "data" branch (status.json, events.json) every ?poll=<seconds>.
 // ?relay=<url> picks another relay, ?relay=off turns it off; ?data=<folder> reads another data folder.
 
-const SITE_VERSION = '34'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
+const SITE_VERSION = '35'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
 const params = new URLSearchParams(location.search);
 // live: read the data branch from GitHub's raw file server (unique ?t= is always fresh; Pages copies froze when published too often)
 const LIVE_DATA = 'https://raw.githubusercontent.com/useleess/workshop/data';
@@ -909,7 +909,17 @@ function onStatus(M, event) {
         return;
       }
       if (found.where !== 'board') { // started straight from the front desk or a tray: onto the board first
-        await relocate(M, found, { ...found.entry.item, status: 'planned', lane: eventLane(M, event) || found.entry.item.lane || null });
+        // inside the desk queue, so a 'planned' event for the same request can't move it to the board a second time
+        await new Promise((done) => queue('desk').push(async () => {
+          try {
+            const now = findEntry(M, event.item);
+            if (now && now.where !== 'board' && now.where !== 'desk' && now.where !== 'ready') {
+              await relocate(M, now, { ...now.entry.item, status: 'planned', lane: eventLane(M, event) || now.entry.item.lane || null });
+            }
+          } finally {
+            done();
+          }
+        }));
         found = findEntry(M, event.item);
         if (!found || found.where !== 'board') return;
       }
