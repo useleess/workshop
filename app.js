@@ -5,7 +5,7 @@
 // relay is not answering, the page reads the one-commit "data" branch (status.json, events.json) every ?poll=<seconds>.
 // ?relay=<url> picks another relay, ?relay=off turns it off; ?data=<folder> reads another data folder.
 
-const SITE_VERSION = '35'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
+const SITE_VERSION = '36'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
 const params = new URLSearchParams(location.search);
 // live: read the data branch from GitHub's raw file server (unique ?t= is always fresh; Pages copies froze when published too often)
 const LIVE_DATA = 'https://raw.githubusercontent.com/useleess/workshop/data';
@@ -393,6 +393,13 @@ function esc(text) {
   return String(text).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+// long names wrap onto two lines; only those get the tight 'two' class, names that fit stay exactly as they were
+function tightIfWrapped(node) {
+  const fit = () => node.classList.toggle('two', node.scrollHeight > 2 * parseFloat(getComputedStyle(node).fontSize));
+  fit();
+  document.fonts.ready.then(fit);
+}
+
 function buildMod(F, mod, slot, row) {
   const [x, y] = SLOTS[slot];
   const M = { mod, F, x, y, row, slot, board: [], desk: [], ready: [], front: [], info: [], out: [] };
@@ -400,6 +407,7 @@ function buildMod(F, mod, slot, row) {
   desk.innerHTML = `<div class="top" data-surface="desk"></div><div class="front"><div class="plate"></div></div>
     <div class="monitor"><div class="screen"></div></div><div class="ready-label hidden" data-surface="ready-spot">READY</div>`;
   desk.querySelector('.plate').textContent = mod.name;
+  tightIfWrapped(desk.querySelector('.plate'));
   M.screen = desk.querySelector('.screen');
   M.readyLabel = desk.querySelector('.ready-label');
   M.zz = el('div', 'hidden', desk, '<div class="zz" style="left:140px;top:0">z</div><div class="zz d" style="left:148px;top:-6px">z</div>');
@@ -410,6 +418,7 @@ function buildMod(F, mod, slot, row) {
   const top = 38 + 32 * row;
   const name = at(el('div', 'row-name', F.board), 14, top + 6);
   name.textContent = mod.name;
+  tightIfWrapped(name);
   name.style.borderLeftColor = HEADS[slot]; // the same colour as the mod's builder and its front-desk tickets
   M.empty = {};
   M.more = {};
