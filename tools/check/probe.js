@@ -24,6 +24,7 @@
   const addStyle = () => (document.head || document.documentElement).appendChild(style);
   if (document.documentElement) addStyle(); else document.addEventListener('DOMContentLoaded', addStyle);
   P.showAll = (on) => { style.media = on ? 'all' : 'not all'; };
+  if (new URLSearchParams(location.search).has('realfloors')) P.showAll(false); // still scenes: built exactly as a visitor's page is
 
   const scale = () => {
     const stage = document.getElementById('stage');

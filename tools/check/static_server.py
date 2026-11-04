@@ -26,7 +26,10 @@ def main(port, root, logfile):
             self._log()
             super().do_HEAD()
 
-    server = http.server.ThreadingHTTPServer(('127.0.0.1', int(port)), functools.partial(Handler, directory=root))
+    class Server(http.server.ThreadingHTTPServer):
+        request_queue_size = 128  # the default 5 refuses connections when several test browsers start at once
+
+    server = Server(('127.0.0.1', int(port)), functools.partial(Handler, directory=root))
     server.daemon_threads = True
     server.serve_forever()
 

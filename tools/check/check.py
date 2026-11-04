@@ -251,8 +251,7 @@ async def shoot_scenes(browser, origin, side, out, quick):
     for name, data, (w, h), mobile, view in SCENES:
         if quick and name not in ('floor1', 'dungeon', 'floor1-testing'):
             continue
-        await browser.goto(f'{origin}/index.html?data=data-test/scene-{data}&poll=3600', w, h, mobile)
-        await browser.eval('window.__probe.showAll(false)')  # the probe normally shows every floor at once
+        await browser.goto(f'{origin}/index.html?data=data-test/scene-{data}&poll=3600&realfloors', w, h, mobile)
         await browser.eval(f'(() => {{ const s = document.createElement("style"); s.textContent = {json.dumps(FREEZE_CSS)}; document.head.appendChild(s); }})()')
         if view != 'f1':
             await browser.eval(f"document.querySelector('[data-go=\"{view}\"]').click()")

@@ -5,7 +5,7 @@
 // relay is not answering, the page reads the one-commit "data" branch (status.json, events.json) every ?poll=<seconds>.
 // ?relay=<url> picks another relay, ?relay=off turns it off; ?data=<folder> reads another data folder.
 
-const SITE_VERSION = '36'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
+const SITE_VERSION = '37'; // keep equal to version.txt and the ?v= in index.html; open tabs reload when it changes
 const params = new URLSearchParams(location.search);
 // live: read the data branch from GitHub's raw file server (unique ?t= is always fresh; Pages copies froze when published too often)
 const LIVE_DATA = 'https://raw.githubusercontent.com/useleess/workshop/data';
@@ -398,6 +398,7 @@ function tightIfWrapped(node) {
   const fit = () => node.classList.toggle('two', node.scrollHeight > 2 * parseFloat(getComputedStyle(node).fontSize));
   fit();
   document.fonts.ready.then(fit);
+  new ResizeObserver(fit).observe(node); // a name built on a hidden floor has no height until that floor is shown
 }
 
 function buildMod(F, mod, slot, row) {
